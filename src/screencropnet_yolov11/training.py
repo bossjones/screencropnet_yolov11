@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 from ultralytics import YOLO
-import ultralytics.models.yolo.model
 
 logger = logging.getLogger(__name__)
 
