@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: default install lint test open-coverage upgrade build clean agent-rules help
+.PHONY: default install lint test open-coverage upgrade build clean agent-rules help monkeytype-create monkeytype-apply autotype
 
 default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -49,6 +49,19 @@ CLAUDE.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
 AGENTS.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
 	@echo "🚀 Generating AGENTS.md from .cursor/rules"
 	@cat .cursor/rules/general.mdc .cursor/rules/python.mdc > AGENTS.md
+
+.PHONY: monkeytype-create
+monkeytype-create: ## Run tests with monkeytype tracing
+	@echo "🚀 Running tests with monkeytype tracing"
+	@uv run monkeytype run `uv run which pytest`
+
+.PHONY: monkeytype-apply
+monkeytype-apply: ## Apply monkeytype stubs to all modules
+	@echo "🚀 Applying monkeytype stubs to all modules"
+	@uv run monkeytype list-modules | xargs -n1 -I{} sh -c 'uv run monkeytype apply {}'
+
+.PHONY: autotype
+autotype: monkeytype-create monkeytype-apply ## Run monkeytype tracing and apply stubs
 
 .PHONY: clean
 clean: ## Remove build artifacts and cache directories
