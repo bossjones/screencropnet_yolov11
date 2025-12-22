@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from ultralytics import YOLO
+import ultralytics.models.yolo.model
+from screencropnet_yolov11.training import TrainingHistory
 
 logger = logging.getLogger(__name__)
 
@@ -94,35 +96,35 @@ class TrainingHistory:
 class TrainingCallback:
     """Base class for training callbacks."""
 
-    def on_train_start(self, trainer) -> None:
+    def on_train_start(self, trainer: Any) -> None:
         """Called when training starts."""
         pass
 
-    def on_train_end(self, trainer) -> None:
+    def on_train_end(self, trainer: Any) -> None:
         """Called when training ends."""
         pass
 
-    def on_epoch_start(self, trainer) -> None:
+    def on_epoch_start(self, trainer: Any) -> None:
         """Called at the start of each epoch."""
         pass
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Called at the end of each epoch."""
         pass
 
-    def on_batch_start(self, trainer) -> None:
+    def on_batch_start(self, trainer: Any) -> None:
         """Called at the start of each batch."""
         pass
 
-    def on_batch_end(self, trainer) -> None:
+    def on_batch_end(self, trainer: Any) -> None:
         """Called at the end of each batch."""
         pass
 
-    def on_val_start(self, trainer) -> None:
+    def on_val_start(self, trainer: Any) -> None:
         """Called when validation starts."""
         pass
 
-    def on_val_end(self, trainer) -> None:
+    def on_val_end(self, trainer: Any) -> None:
         """Called when validation ends."""
         pass
 
@@ -142,13 +144,13 @@ class MetricsLogger(TrainingCallback):
         self.log_interval = log_interval
         self.epoch_start_time = None
 
-    def on_epoch_start(self, trainer) -> None:
+    def on_epoch_start(self, trainer: Any) -> None:
         """Record epoch start time."""
         import time
 
         self.epoch_start_time = time.time()
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Log metrics at end of epoch."""
         import time
 
@@ -224,7 +226,7 @@ class EarlyStopping(TrainingCallback):
         self.best_epoch = 0
         self.should_stop = False
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Check if training should stop."""
         # Get current metric value
         if hasattr(trainer, "metrics") and trainer.metrics is not None:
@@ -279,7 +281,7 @@ class CheckpointCallback(TrainingCallback):
 
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Save checkpoint if needed."""
         epoch = trainer.epoch + 1
 
@@ -321,7 +323,7 @@ class TensorBoardCallback(TrainingCallback):
         except ImportError:
             logger.warning("TensorBoard not installed. Install with: pip install tensorboard")
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Log metrics to TensorBoard."""
         if self.writer is None:
             return
@@ -347,7 +349,7 @@ class TensorBoardCallback(TrainingCallback):
             lr = trainer.optimizer.param_groups[0]["lr"]
             self.writer.add_scalar("Learning_Rate", lr, epoch)
 
-    def on_train_end(self, trainer) -> None:
+    def on_train_end(self, trainer: Any) -> None:
         """Close TensorBoard writer."""
         if self.writer is not None:
             self.writer.close()
@@ -379,7 +381,7 @@ class WandbCallback(TrainingCallback):
         except ImportError:
             logger.warning("wandb not installed. Install with: pip install wandb")
 
-    def on_epoch_end(self, trainer) -> None:
+    def on_epoch_end(self, trainer: Any) -> None:
         """Log metrics to W&B."""
         if self.run is None:
             return
@@ -410,7 +412,7 @@ class WandbCallback(TrainingCallback):
 
         self.wandb.log(log_dict)
 
-    def on_train_end(self, trainer) -> None:
+    def on_train_end(self, trainer: Any) -> None:
         """Finish W&B run."""
         if self.run is not None:
             self.run.finish()
@@ -597,7 +599,7 @@ class Trainer:
 
 
 def create_ablation_study(
-    model_factory, data_yaml: str, output_dir: str, ablation_config: dict[str, list]
+    model_factory: Any, data_yaml: str, output_dir: str, ablation_config: dict[str, list]
 ) -> dict[str, TrainingHistory]:
     """
     Run ablation study with different configurations.
