@@ -1,0 +1,9 @@
+# Changes here will be overwritten by Copier. Do not edit manually.
+_commit: v0.2.19
+_src_path: gh:jlevy/simple-modern-uv
+package_author_email: bossjones@theblacktonystark.com
+package_author_name: Malcolm Jones
+package_description: changeme
+package_github_org: bossjones
+package_module: screencropnet_yolov11
+package_name: screencropnet_yolov11
