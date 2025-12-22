@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: default install lint test upgrade build clean agent-rules help
+.PHONY: default install lint test open-coverage upgrade build clean agent-rules help
 
 default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -22,6 +22,10 @@ lint: ## Run linting tools
 test: ## Run tests with pytest
 	@echo "🚀 Running tests with pytest"
 	@uv run pytest
+
+.PHONY: open-coverage
+open-coverage: ## Open coverage HTML report in browser
+	@open htmlcov/index.html
 
 .PHONY: upgrade
 upgrade: ## Upgrade all dependencies to latest versions
