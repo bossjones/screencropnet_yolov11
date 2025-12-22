@@ -9,12 +9,15 @@ This module handles:
 - Results export
 """
 
+from __future__ import annotations
+
 import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
+import numpy.typing as npt
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
@@ -49,7 +52,7 @@ class EvaluationResults:
     class_metrics: list[ClassMetrics] = field(default_factory=list)
 
     # Confusion matrix
-    confusion_matrix: np.ndarray | None = None
+    confusion_matrix: npt.NDArray[np.int64] | None = None
 
     # Speed metrics
     preprocess_time: float = 0.0
@@ -244,7 +247,9 @@ class Evaluator:
         print("=" * 70 + "\n")
 
 
-def calculate_iou(box1: np.ndarray, box2: np.ndarray) -> float:
+def calculate_iou(
+    box1: npt.NDArray[np.floating[Any]], box2: npt.NDArray[np.floating[Any]]
+) -> float:
     """
     Calculate IoU between two boxes.
 
@@ -271,8 +276,12 @@ def calculate_iou(box1: np.ndarray, box2: np.ndarray) -> float:
 
 
 def calculate_precision_recall_curve(
-    predictions: list[dict], ground_truths: list[dict], iou_threshold: float = 0.5
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    predictions: list[dict[str, Any]],
+    ground_truths: list[dict[str, Any]],
+    iou_threshold: float = 0.5,
+) -> tuple[
+    npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]], npt.NDArray[np.floating[Any]]
+]:
     """
     Calculate precision-recall curve.
 
@@ -328,7 +337,9 @@ def calculate_precision_recall_curve(
     return precision, recall, thresholds
 
 
-def calculate_average_precision(precision: np.ndarray, recall: np.ndarray) -> float:
+def calculate_average_precision(
+    precision: npt.NDArray[np.floating[Any]], recall: npt.NDArray[np.floating[Any]]
+) -> float:
     """
     Calculate Average Precision using 101-point interpolation.
 
@@ -361,8 +372,11 @@ def calculate_average_precision(precision: np.ndarray, recall: np.ndarray) -> fl
 
 
 def generate_confusion_matrix(
-    predictions: list[dict], ground_truths: list[dict], num_classes: int, iou_threshold: float = 0.5
-) -> np.ndarray:
+    predictions: list[dict[str, Any]],
+    ground_truths: list[dict[str, Any]],
+    num_classes: int,
+    iou_threshold: float = 0.5,
+) -> npt.NDArray[np.int64]:
     """
     Generate confusion matrix for object detection.
 
@@ -436,7 +450,7 @@ def analyze_errors(
     }
 
     # Run inference on test images
-    results = model.predict(test_images, conf=conf, verbose=False)
+    model.predict(test_images, conf=conf, verbose=False)
 
     # Analysis would require ground truth annotations
     # This is a placeholder for the analysis logic
@@ -502,7 +516,7 @@ def find_optimal_confidence(
 def benchmark_model(
     model: YOLO,
     image_size: int = 640,
-    batch_sizes: list[int] = [1, 8, 16, 32],
+    batch_sizes: list[int] | None = None,
     device: str = "cuda",
     warmup_runs: int = 10,
     test_runs: int = 100,
@@ -521,6 +535,9 @@ def benchmark_model(
     Returns:
         Dictionary of benchmark results per batch size
     """
+    if batch_sizes is None:
+        batch_sizes = [1, 8, 16, 32]
+
     import time
 
     import torch
@@ -533,7 +550,7 @@ def benchmark_model(
 
         # Warmup
         for _ in range(warmup_runs):
-            _ = model.model(dummy_input)
+            _ = model.model(dummy_input)  # pyright: ignore[reportOptionalCall]
 
         # Synchronize if CUDA
         if device == "cuda":
@@ -543,7 +560,7 @@ def benchmark_model(
         times = []
         for _ in range(test_runs):
             start = time.perf_counter()
-            _ = model.model(dummy_input)
+            _ = model.model(dummy_input)  # pyright: ignore[reportOptionalCall]
             if device == "cuda":
                 torch.cuda.synchronize()
             times.append(time.perf_counter() - start)

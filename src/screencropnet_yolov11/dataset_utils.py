@@ -9,6 +9,8 @@ This module handles:
 - Data preprocessing for Twitter screenshots
 """
 
+from __future__ import annotations
+
 import logging
 import random
 import shutil
@@ -18,6 +20,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 import yaml
 from PIL import Image
 
@@ -389,17 +392,17 @@ class RoboflowLoader:
             Path to downloaded dataset
         """
         try:
-            from roboflow import Roboflow
-        except ImportError:
-            raise ImportError("roboflow package not installed. Install with: pip install roboflow")
+            from roboflow import Roboflow  # pyright: ignore[reportMissingImports]
+        except ImportError as err:
+            raise ImportError(
+                "roboflow package not installed. Install with: pip install roboflow"
+            ) from err
 
         logger.info(f"Downloading dataset from Roboflow: {self.workspace}/{self.project}")
 
         rf = Roboflow(api_key=self.api_key)
         project = rf.workspace(self.workspace).project(self.project)
-        dataset = project.version(self.version).download(
-            self.format, location=str(self.output_path)
-        )
+        project.version(self.version).download(self.format, location=str(self.output_path))
 
         logger.info(f"Dataset downloaded to: {self.output_path}")
         return self.output_path
@@ -424,7 +427,7 @@ class TwitterScreenshotPreprocessor:
         """
         self.target_size = target_size
 
-    def preprocess(self, image: np.ndarray) -> np.ndarray:
+    def preprocess(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """
         Apply preprocessing pipeline to a Twitter screenshot.
 
@@ -448,11 +451,11 @@ class TwitterScreenshotPreprocessor:
 
         return image
 
-    def _reduce_compression_artifacts(self, image: np.ndarray) -> np.ndarray:
+    def _reduce_compression_artifacts(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Apply mild denoising to reduce JPEG compression artifacts."""
         return cv2.fastNlMeansDenoisingColored(image, None, 3, 3, 7, 21)
 
-    def _normalize_colors(self, image: np.ndarray) -> np.ndarray:
+    def _normalize_colors(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Normalize image colors for consistent processing."""
         # Convert to LAB color space
         lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
@@ -466,13 +469,13 @@ class TwitterScreenshotPreprocessor:
 
     def letterbox(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[np.uint8],
         new_shape: tuple[int, int] = (640, 640),
         color: tuple[int, int, int] = (114, 114, 114),
         auto: bool = True,
         scale_fill: bool = False,
         scaleup: bool = True,
-    ) -> tuple[np.ndarray, tuple[float, float], tuple[int, int]]:
+    ) -> tuple[npt.NDArray[np.uint8], tuple[float, float], tuple[int, int]]:
         """
         Resize and pad image while maintaining aspect ratio.
 
@@ -524,7 +527,9 @@ class TwitterScreenshotPreprocessor:
         return image, ratio, (dw, dh)
 
 
-def create_dataset_yaml(dataset_path: str, class_names: list[str], output_path: str) -> str:
+def create_dataset_yaml(
+    dataset_path: str | Path, class_names: list[str], output_path: str | Path
+) -> str:
     """
     Create YOLO format dataset.yaml file.
 

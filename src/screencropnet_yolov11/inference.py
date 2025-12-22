@@ -9,6 +9,8 @@ This module handles:
 - Export to various formats
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import time
@@ -18,6 +20,7 @@ from typing import Any
 
 import cv2
 import numpy as np
+import numpy.typing as npt
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
@@ -31,7 +34,7 @@ class Detection:
     class_name: str
     confidence: float
     bbox: tuple[float, float, float, float]  # x1, y1, x2, y2
-    bbox_normalized: tuple[float, float, float, float] = None  # Normalized coords
+    bbox_normalized: tuple[float, float, float, float] | None = None  # Normalized coords
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -78,7 +81,7 @@ class InferenceResult:
             "inference_time_ms": self.inference_time,
         }
 
-    def filter_by_confidence(self, min_conf: float) -> "InferenceResult":
+    def filter_by_confidence(self, min_conf: float) -> InferenceResult:
         """Return new result with detections filtered by confidence."""
         filtered = InferenceResult(
             image_path=self.image_path,
@@ -88,7 +91,7 @@ class InferenceResult:
         filtered.detections = [d for d in self.detections if d.confidence >= min_conf]
         return filtered
 
-    def filter_by_class(self, class_ids: list[int]) -> "InferenceResult":
+    def filter_by_class(self, class_ids: list[int]) -> InferenceResult:
         """Return new result with detections filtered by class."""
         filtered = InferenceResult(
             image_path=self.image_path,
@@ -138,7 +141,7 @@ class InferencePipeline:
 
     def predict_image(
         self,
-        image: str | np.ndarray,
+        image: str | npt.NDArray[np.uint8],
         conf: float | None = None,
         iou: float | None = None,
         augment: bool = False,
@@ -162,6 +165,8 @@ class InferencePipeline:
         if isinstance(image, str):
             image_path = image
             img = cv2.imread(image)
+            if img is None:
+                raise ValueError(f"Failed to read image: {image}")
             img_size = (img.shape[1], img.shape[0])  # width, height
         else:
             image_path = "numpy_array"
@@ -188,41 +193,42 @@ class InferencePipeline:
         if results and len(results) > 0:
             boxes = results[0].boxes
 
-            for i in range(len(boxes)):
-                # Get bbox coordinates
-                xyxy = boxes.xyxy[i].cpu().numpy()
-                conf_score = float(boxes.conf[i].cpu().numpy())
-                class_id = int(boxes.cls[i].cpu().numpy())
+            if boxes is not None:
+                for i in range(len(boxes)):
+                    # Get bbox coordinates
+                    xyxy = boxes.xyxy[i].cpu().numpy()
+                    conf_score = float(boxes.conf[i].cpu().numpy())
+                    class_id = int(boxes.cls[i].cpu().numpy())
 
-                # Get class name
-                class_name = (
-                    self.class_names[class_id]
-                    if class_id < len(self.class_names)
-                    else f"class_{class_id}"
-                )
+                    # Get class name
+                    class_name = (
+                        self.class_names[class_id]
+                        if class_id < len(self.class_names)
+                        else f"class_{class_id}"
+                    )
 
-                # Calculate normalized coordinates
-                norm_bbox = (
-                    xyxy[0] / img_size[0],
-                    xyxy[1] / img_size[1],
-                    xyxy[2] / img_size[0],
-                    xyxy[3] / img_size[1],
-                )
+                    # Calculate normalized coordinates
+                    norm_bbox = (
+                        xyxy[0] / img_size[0],
+                        xyxy[1] / img_size[1],
+                        xyxy[2] / img_size[0],
+                        xyxy[3] / img_size[1],
+                    )
 
-                detection = Detection(
-                    class_id=class_id,
-                    class_name=class_name,
-                    confidence=conf_score,
-                    bbox=tuple(xyxy),
-                    bbox_normalized=norm_bbox,
-                )
-                result.detections.append(detection)
+                    detection = Detection(
+                        class_id=class_id,
+                        class_name=class_name,
+                        confidence=conf_score,
+                        bbox=tuple(xyxy),
+                        bbox_normalized=norm_bbox,
+                    )
+                    result.detections.append(detection)
 
         return result
 
     def predict_batch(
         self,
-        images: list[str | np.ndarray],
+        images: list[str | npt.NDArray[np.uint8]],
         conf: float | None = None,
         iou: float | None = None,
         batch_size: int = 16,
@@ -266,6 +272,9 @@ class InferencePipeline:
                 # Get image size
                 if isinstance(batch[j], str):
                     img = cv2.imread(batch[j])
+                    if img is None:
+                        logger.warning(f"Failed to read image: {batch[j]}")
+                        continue
                     img_size = (img.shape[1], img.shape[0])
                 else:
                     img_size = (batch[j].shape[1], batch[j].shape[0])
@@ -344,7 +353,7 @@ class InferencePipeline:
         # Setup video writer if saving
         writer = None
         if output_path:
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # pyright: ignore[reportAttributeAccessIssue]
             writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         frame_results = []
@@ -391,11 +400,11 @@ class InferencePipeline:
 
     def _draw_detections(
         self,
-        image: np.ndarray,
+        image: npt.NDArray[np.uint8],
         result: InferenceResult,
         line_thickness: int = 2,
         font_scale: float = 0.5,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[np.uint8]:
         """Draw detection boxes on image."""
         annotated = image.copy()
 
@@ -605,7 +614,11 @@ def apply_nms(
     return [detections[i] for i in keep]
 
 
-def _nms(boxes: np.ndarray, scores: np.ndarray, iou_threshold: float) -> list[int]:
+def _nms(
+    boxes: npt.NDArray[np.floating[Any]],
+    scores: npt.NDArray[np.floating[Any]],
+    iou_threshold: float,
+) -> list[int]:
     """Standard NMS implementation."""
     x1 = boxes[:, 0]
     y1 = boxes[:, 1]

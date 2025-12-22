@@ -376,7 +376,7 @@ def run_ablation_study(config: dict) -> None:
     factory = ModelFactory(model_config)
 
     # Run ablation
-    results = create_ablation_study(
+    create_ablation_study(
         model_factory=factory,
         data_yaml=str(Path(config["logging"]["output_dir"]) / "dataset.yaml"),
         output_dir=str(output_dir),

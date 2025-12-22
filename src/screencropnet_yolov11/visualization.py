@@ -322,7 +322,7 @@ class DetectionVisualizer:
         fig, axes = plt.subplots(rows, cols, figsize=figsize)
         axes = np.atleast_2d(axes)
 
-        for idx, (img, dets) in enumerate(zip(images, results)):
+        for idx, (img, dets) in enumerate(zip(images, results, strict=True)):
             row = idx // cols
             col = idx % cols
             ax = axes[row, col]
@@ -381,7 +381,7 @@ class DatasetVisualizer:
         plt.xticks(rotation=45, ha="right")
 
         # Add count labels on bars
-        for bar, count in zip(bars, counts):
+        for bar, count in zip(bars, counts, strict=True):
             ax.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height(),
@@ -429,7 +429,7 @@ class DatasetVisualizer:
         axes[1].set_title("Bounding Box Height Distribution")
 
         # Aspect ratio distribution
-        aspect_ratios = [w / h if h > 0 else 0 for w, h in zip(widths, heights)]
+        aspect_ratios = [w / h if h > 0 else 0 for w, h in zip(widths, heights, strict=True)]
         axes[2].hist(aspect_ratios, bins=50, color="coral", alpha=0.7, edgecolor="black")
         axes[2].set_xlabel("Aspect Ratio (W/H)")
         axes[2].set_ylabel("Count")
@@ -666,7 +666,7 @@ def create_comparison_plot(
     plt.xticks(rotation=45, ha="right")
 
     # Add value labels
-    for bar, val in zip(bars, values):
+    for bar, val in zip(bars, values, strict=True):
         ax.text(
             bar.get_x() + bar.get_width() / 2,
             bar.get_height(),

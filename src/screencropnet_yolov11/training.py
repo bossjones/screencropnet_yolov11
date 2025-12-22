@@ -557,7 +557,7 @@ class Trainer:
         start_time = time.time()
 
         try:
-            results = self.model.train(**train_args)
+            self.model.train(**train_args)
 
             self.history.training_time = time.time() - start_time
 
@@ -625,12 +625,12 @@ def create_ablation_study(
 
     for combo in combinations:
         # Create config name
-        config_name = "_".join(f"{n}={v}" for n, v in zip(param_names, combo))
+        config_name = "_".join(f"{n}={v}" for n, v in zip(param_names, combo, strict=True))
         logger.info(f"\nTesting configuration: {config_name}")
 
         # Update config
         test_config = model_factory.config.__dict__.copy()
-        for name, value in zip(param_names, combo):
+        for name, value in zip(param_names, combo, strict=True):
             if hasattr(model_factory.config, name):
                 setattr(model_factory.config, name, value)
 
