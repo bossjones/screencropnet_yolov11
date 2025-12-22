@@ -183,3 +183,6 @@ cython_debug/
 .pypirc
 .claude/settings.local.json
 src/screencropnet_yolov11/config/datasets/
+
+cov.xml
+junit/
