@@ -271,16 +271,19 @@ class InferencePipeline:
 
                 # Get image size
                 if isinstance(batch[j], str):
-                    img = cv2.imread(batch[j])
+                    img = cv2.imread(batch[j])  # pyright: ignore[reportArgumentType, reportCallIssue]
                     if img is None:
                         logger.warning(f"Failed to read image: {batch[j]}")
                         continue
                     img_size = (img.shape[1], img.shape[0])
                 else:
-                    img_size = (batch[j].shape[1], batch[j].shape[0])
+                    img_arr = batch[j]  # pyright: ignore[reportUnknownVariableType]
+                    img_size = (img_arr.shape[1], img_arr.shape[0])  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
 
                 result = InferenceResult(
-                    image_path=img_path, image_size=img_size, inference_time=batch_time / len(batch)
+                    image_path=str(img_path),
+                    image_size=img_size,
+                    inference_time=batch_time / len(batch),
                 )
 
                 if res.boxes is not None:
@@ -365,12 +368,12 @@ class InferencePipeline:
                 break
 
             # Run inference
-            result = self.predict_image(frame, conf=conf, iou=iou)
+            result = self.predict_image(frame, conf=conf, iou=iou)  # pyright: ignore[reportArgumentType]
             result.image_path = f"frame_{frame_idx}"
             frame_results.append(result)
 
             # Draw annotations on frame
-            annotated = self._draw_detections(frame, result)
+            annotated = self._draw_detections(frame, result)  # pyright: ignore[reportArgumentType]
 
             # Save frame
             if writer:

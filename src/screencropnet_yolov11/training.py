@@ -140,7 +140,7 @@ class MetricsLogger(TrainingCallback):
         """
         self.history = history
         self.log_interval = log_interval
-        self.epoch_start_time = None
+        self.epoch_start_time: float = 0.0
 
     def on_epoch_start(self, trainer: Any) -> None:
         """Record epoch start time."""
@@ -356,7 +356,9 @@ class TensorBoardCallback(TrainingCallback):
 class WandbCallback(TrainingCallback):
     """Callback for Weights & Biases logging."""
 
-    def __init__(self, project: str, entity: str = None, config: dict = None):
+    def __init__(
+        self, project: str, entity: str | None = None, config: dict[str, Any] | None = None
+    ):
         """
         Initialize W&B callback.
 
@@ -597,7 +599,7 @@ class Trainer:
 
 
 def create_ablation_study(
-    model_factory: Any, data_yaml: str, output_dir: str, ablation_config: dict[str, list]
+    model_factory: Any, data_yaml: str, output_dir: str, ablation_config: dict[str, list[Any]]
 ) -> dict[str, TrainingHistory]:
     """
     Run ablation study with different configurations.

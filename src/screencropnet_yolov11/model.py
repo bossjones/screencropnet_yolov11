@@ -28,7 +28,7 @@ class ModelConfig:
     num_classes: int | None = None
     device: str = "auto"
     multi_gpu: bool = False
-    gpu_ids: list[int] = None
+    gpu_ids: list[int] | None = None
 
     # Training hyperparameters
     epochs: int = 100
@@ -74,7 +74,7 @@ class ModelFactory:
         self.config = config
         self.device = self._setup_device()
 
-    def _setup_device(self) -> str:
+    def _setup_device(self) -> str | list[int] | int:
         """
         Detect and configure the compute device.
 
@@ -108,7 +108,7 @@ class ModelFactory:
             device = self.config.device
             logger.info(f"Using specified device: {device}")
 
-        return device
+        return device  # pyright: ignore[reportReturnType]
 
     def create_model(self) -> YOLO:
         """
@@ -427,9 +427,9 @@ def get_model_info(model: YOLO) -> dict[str, Any]:
     }
 
     # Get model parameters
-    if hasattr(model, "model"):
-        total_params = sum(p.numel() for p in model.model.parameters())
-        trainable_params = sum(p.numel() for p in model.model.parameters() if p.requires_grad)
+    if hasattr(model, "model") and model.model is not None and hasattr(model.model, "parameters"):
+        total_params = sum(p.numel() for p in model.model.parameters())  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+        trainable_params = sum(p.numel() for p in model.model.parameters() if p.requires_grad)  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
 
         info["total_parameters"] = total_params
         info["trainable_parameters"] = trainable_params
@@ -438,7 +438,7 @@ def get_model_info(model: YOLO) -> dict[str, Any]:
     return info
 
 
-def compare_models(model_paths: list[str], test_image: str) -> dict[str, dict]:
+def compare_models(model_paths: list[str], test_image: str) -> dict[str, dict[str, Any]]:
     """
     Compare multiple models on the same test image.
 
@@ -451,7 +451,7 @@ def compare_models(model_paths: list[str], test_image: str) -> dict[str, dict]:
     """
     import time
 
-    results = {}
+    results: dict[str, dict[str, Any]] = {}
 
     for model_path in model_paths:
         model_name = Path(model_path).stem
@@ -462,13 +462,18 @@ def compare_models(model_paths: list[str], test_image: str) -> dict[str, dict]:
 
         # Timed inference
         start = time.time()
+        pred = None
         for _ in range(10):
             pred = model.predict(test_image, verbose=False)
         avg_time = (time.time() - start) / 10
 
+        detection_count = 0
+        if pred and pred[0].boxes is not None:
+            detection_count = len(pred[0].boxes)
+
         results[model_name] = {
             "inference_time_ms": avg_time * 1000,
-            "detections": len(pred[0].boxes) if pred else 0,
+            "detections": detection_count,
             "model_info": get_model_info(model),
         }
 

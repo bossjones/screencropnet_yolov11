@@ -550,7 +550,7 @@ def benchmark_model(
 
         # Warmup
         for _ in range(warmup_runs):
-            _ = model.model(dummy_input)  # pyright: ignore[reportOptionalCall]
+            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]
 
         # Synchronize if CUDA
         if device == "cuda":
@@ -560,7 +560,7 @@ def benchmark_model(
         times = []
         for _ in range(test_runs):
             start = time.perf_counter()
-            _ = model.model(dummy_input)  # pyright: ignore[reportOptionalCall]
+            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]
             if device == "cuda":
                 torch.cuda.synchronize()
             times.append(time.perf_counter() - start)

@@ -438,7 +438,7 @@ class TwitterScreenshotPreprocessor:
             Preprocessed image
         """
         # Convert to RGB
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # pyright: ignore[reportAssignmentType]
 
         # Remove compression artifacts
         image = self._reduce_compression_artifacts(image)
@@ -447,13 +447,13 @@ class TwitterScreenshotPreprocessor:
         image = self._normalize_colors(image)
 
         # Convert back to BGR for OpenCV compatibility
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # pyright: ignore[reportAssignmentType]
 
-        return image
+        return image  # pyright: ignore[reportReturnType]
 
     def _reduce_compression_artifacts(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Apply mild denoising to reduce JPEG compression artifacts."""
-        return cv2.fastNlMeansDenoisingColored(image, None, 3, 3, 7, 21)
+        return cv2.fastNlMeansDenoisingColored(image, None, 3, 3, 7, 21)  # pyright: ignore[reportReturnType]
 
     def _normalize_colors(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Normalize image colors for consistent processing."""
@@ -465,7 +465,7 @@ class TwitterScreenshotPreprocessor:
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
 
         # Convert back to RGB
-        return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+        return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)  # pyright: ignore[reportReturnType]
 
     def letterbox(
         self,
@@ -516,15 +516,15 @@ class TwitterScreenshotPreprocessor:
         dh /= 2
 
         if shape[::-1] != new_unpad:  # Resize
-            image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)
+            image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)  # pyright: ignore[reportAssignmentType]
 
         top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-        image = cv2.copyMakeBorder(
+        image = cv2.copyMakeBorder(  # pyright: ignore[reportAssignmentType]
             image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
         )
 
-        return image, ratio, (dw, dh)
+        return image, ratio, (int(dw), int(dh))  # pyright: ignore[reportReturnType]
 
 
 def create_dataset_yaml(

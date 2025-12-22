@@ -16,6 +16,7 @@ from typing import Any
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import seaborn as sns
 from matplotlib.figure import Figure
 
@@ -157,7 +158,7 @@ class ConfusionMatrixVisualizer:
 
     @staticmethod
     def plot_confusion_matrix(
-        matrix: np.ndarray,
+        matrix: npt.NDArray[Any],
         class_names: list[str],
         normalize: bool = True,
         save_path: str | None = None,
@@ -241,11 +242,11 @@ class DetectionVisualizer:
 
     def draw_detections(
         self,
-        image: np.ndarray,
-        detections: list[dict],
+        image: npt.NDArray[Any],
+        detections: list[dict[str, Any]],
         show_confidence: bool = True,
         line_width: int = 2,
-    ) -> np.ndarray:
+    ) -> npt.NDArray[Any]:
         """
         Draw detections on image.
 
@@ -297,8 +298,8 @@ class DetectionVisualizer:
 
     def plot_detection_grid(
         self,
-        images: list[np.ndarray],
-        results: list[list[dict]],
+        images: list[npt.NDArray[Any]],
+        results: list[list[dict[str, Any]]],
         cols: int = 3,
         figsize: tuple[int, int] = (15, 10),
         save_path: str | None = None,

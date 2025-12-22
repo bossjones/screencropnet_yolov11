@@ -73,7 +73,7 @@ def load_config(config_path: str) -> dict[str, Any]:
     return config
 
 
-def merge_config_with_args(config: dict, args: argparse.Namespace) -> dict:
+def merge_config_with_args(config: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     """Merge command line arguments with config file."""
     # Override config with command line args
     if args.data:
@@ -96,7 +96,7 @@ def merge_config_with_args(config: dict, args: argparse.Namespace) -> dict:
     return config
 
 
-def validate_dataset(config: dict) -> bool:
+def validate_dataset(config: dict[str, Any]) -> bool:
     """Validate dataset integrity."""
     logger.info("Validating dataset...")
 
@@ -125,7 +125,7 @@ def validate_dataset(config: dict) -> bool:
     return True
 
 
-def load_dataset_from_roboflow(config: dict) -> str:
+def load_dataset_from_roboflow(config: dict[str, Any]) -> str:
     """Load dataset from Roboflow if configured."""
     rf_config = config["dataset"]["roboflow"]
 
@@ -150,7 +150,7 @@ def load_dataset_from_roboflow(config: dict) -> str:
     return str(loader.download())
 
 
-def split_dataset_if_needed(config: dict) -> None:
+def split_dataset_if_needed(config: dict[str, Any]) -> None:
     """Split dataset into train/val/test if needed."""
     if not config["dataset"].get("auto_split", False):
         return
@@ -170,7 +170,7 @@ def split_dataset_if_needed(config: dict) -> None:
     logger.info(f"Dataset split complete: {counts}")
 
 
-def train_model(config: dict, resume_path: str | None = None) -> TrainingHistory:
+def train_model(config: dict[str, Any], resume_path: str | None = None) -> TrainingHistory:
     """Run model training."""
     logger.info("=" * 60)
     logger.info("STARTING YOLO 11 TRAINING")
@@ -222,7 +222,9 @@ def train_model(config: dict, resume_path: str | None = None) -> TrainingHistory
 
     # Override with custom augmentation if provided
     if "augmentation" in config:
-        train_config["augmentation"].update(config["augmentation"])
+        augmentation_cfg = train_config["augmentation"]
+        if isinstance(augmentation_cfg, dict):
+            augmentation_cfg.update(config["augmentation"])
 
     # Initialize trainer
     trainer = Trainer(
@@ -238,7 +240,7 @@ def train_model(config: dict, resume_path: str | None = None) -> TrainingHistory
     return history
 
 
-def evaluate_model(config: dict, model_path: str, output_dir: str) -> EvaluationResults:
+def evaluate_model(config: dict[str, Any], model_path: str, output_dir: str) -> EvaluationResults:
     """Evaluate trained model."""
     logger.info("=" * 60)
     logger.info("EVALUATING MODEL")
@@ -275,7 +277,7 @@ def evaluate_model(config: dict, model_path: str, output_dir: str) -> Evaluation
     return results
 
 
-def export_model(config: dict, model_path: str, output_dir: str) -> dict[str, str]:
+def export_model(config: dict[str, Any], model_path: str, output_dir: str) -> dict[str, str]:
     """Export model to various formats."""
     logger.info("=" * 60)
     logger.info("EXPORTING MODEL")
@@ -305,7 +307,7 @@ def export_model(config: dict, model_path: str, output_dir: str) -> dict[str, st
 
 
 def create_visualizations(
-    config: dict, history: TrainingHistory, results: EvaluationResults, output_dir: str
+    config: dict[str, Any], history: TrainingHistory, results: EvaluationResults, output_dir: str
 ) -> None:
     """Create training visualizations."""
     logger.info("Creating visualizations...")
@@ -354,7 +356,7 @@ def create_visualizations(
     logger.info(f"Visualizations saved to: {viz_dir}")
 
 
-def run_ablation_study(config: dict) -> None:
+def run_ablation_study(config: dict[str, Any]) -> None:
     """Run ablation study if configured."""
     ablation_config = config.get("ablation", {})
 
