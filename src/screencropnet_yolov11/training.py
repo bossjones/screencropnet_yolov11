@@ -17,7 +17,6 @@ from typing import Any
 
 from ultralytics import YOLO
 import ultralytics.models.yolo.model
-from screencropnet_yolov11.training import TrainingHistory
 
 logger = logging.getLogger(__name__)
 
