@@ -4,7 +4,7 @@
 # Dataset Configuration
 dataset:
   # Path to dataset root directory (YOLO format expected)
-  path: "./datasets/twitter_screenshots"
+  path: "./datasets/twitter_screenshots_localization_dataset"
   
   # Roboflow integration (optional)
   roboflow:
