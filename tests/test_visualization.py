@@ -81,9 +81,7 @@ def create_sample_evaluation_results(
     }
 
 
-def create_test_image_array(
-    width: int = 200, height: int = 150, channels: int = 3
-) -> Any:
+def create_test_image_array(width: int = 200, height: int = 150, channels: int = 3) -> Any:
     """Create a simple test image array (BGR format)."""
     return np.random.randint(0, 256, (height, width, channels), dtype=np.uint8)
 
@@ -206,9 +204,7 @@ class TestConfusionMatrixVisualizer:
         matrix = np.array([[10, 2], [3, 15]])
         class_names = ["cat", "dog"]
 
-        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(
-            matrix, class_names, normalize=True
-        )
+        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(matrix, class_names, normalize=True)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -218,9 +214,7 @@ class TestConfusionMatrixVisualizer:
         matrix = np.array([[10, 2], [3, 15]])
         class_names = ["cat", "dog"]
 
-        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(
-            matrix, class_names, normalize=False
-        )
+        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(matrix, class_names, normalize=False)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -230,9 +224,7 @@ class TestConfusionMatrixVisualizer:
         matrix = np.array([[10, 2], [0, 0], [1, 5]])
         class_names = ["cat", "dog", "bird"]
 
-        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(
-            matrix, class_names, normalize=True
-        )
+        fig = ConfusionMatrixVisualizer.plot_confusion_matrix(matrix, class_names, normalize=True)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -445,9 +437,7 @@ class TestDatasetVisualizer:
         class_counts = {"cat": 100, "dog": 150}
         save_path = tmp_path / "class_distribution.png"
 
-        fig = DatasetVisualizer.plot_class_distribution(
-            class_counts, save_path=str(save_path)
-        )
+        fig = DatasetVisualizer.plot_class_distribution(class_counts, save_path=str(save_path))
 
         assert save_path.exists()
         assert isinstance(fig, Figure)
@@ -511,9 +501,7 @@ class TestDatasetVisualizer:
         sizes = [(640, 480), (800, 600), (1920, 1080)]
         save_path = tmp_path / "image_sizes.png"
 
-        fig = DatasetVisualizer.plot_image_size_distribution(
-            sizes, save_path=str(save_path)
-        )
+        fig = DatasetVisualizer.plot_image_size_distribution(sizes, save_path=str(save_path))
 
         assert save_path.exists()
         assert isinstance(fig, Figure)
@@ -548,9 +536,7 @@ class TestResultsDashboard:
         evaluation_results = create_sample_evaluation_results()
         class_names = ["class_0", "class_1", "class_2"]
 
-        fig = dashboard.create_dashboard(
-            training_history, evaluation_results, class_names
-        )
+        fig = dashboard.create_dashboard(training_history, evaluation_results, class_names)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -578,9 +564,7 @@ class TestResultsDashboard:
         evaluation_results: dict[str, Any] = {}
         class_names = ["class_0"]
 
-        fig = dashboard.create_dashboard(
-            training_history, evaluation_results, class_names
-        )
+        fig = dashboard.create_dashboard(training_history, evaluation_results, class_names)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -595,9 +579,7 @@ class TestResultsDashboard:
         }
         class_names = ["cat"]
 
-        fig = dashboard.create_dashboard(
-            training_history, evaluation_results, class_names
-        )
+        fig = dashboard.create_dashboard(training_history, evaluation_results, class_names)
 
         assert isinstance(fig, Figure)
         plt.close("all")
@@ -641,9 +623,7 @@ class TestCreateComparisonPlot:
         bars = ax.patches
 
         best_bar = bars[1]
-        assert best_bar.get_facecolor()[:3] == pytest.approx(
-            (1.0, 0.843, 0.0), abs=0.01
-        )
+        assert best_bar.get_facecolor()[:3] == pytest.approx((1.0, 0.843, 0.0), abs=0.01)
         plt.close("all")
 
     def test_comparison_plot_custom_metric(self) -> None:
