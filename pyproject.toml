@@ -38,6 +38,11 @@ classifiers = [
 # ---- Main dependencies ----
 
 dependencies = [
+    "matplotlib>=3.10.8",
+    "opencv-python>=4.12.0.88",
+    "pyyaml>=6.0.3",
+    "seaborn>=0.13.2",
+    "ultralytics>=8.3.240",
 ]
 
 
