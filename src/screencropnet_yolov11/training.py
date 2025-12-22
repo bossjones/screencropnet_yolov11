@@ -140,7 +140,7 @@ class MetricsLogger(TrainingCallback):
         """
         self.history = history
         self.log_interval = log_interval
-        self.epoch_start_time: float = 0.0
+        self.epoch_start_time: float | None = None
 
     def on_epoch_start(self, trainer: Any) -> None:
         """Record epoch start time."""
@@ -183,7 +183,9 @@ class MetricsLogger(TrainingCallback):
 
         # Log to console
         if epoch % self.log_interval == 0:
-            epoch_time = time.time() - self.epoch_start_time
+            epoch_time = (
+                time.time() - self.epoch_start_time if self.epoch_start_time is not None else 0.0
+            )
             logger.info(
                 f"Epoch {epoch}: "
                 f"loss={metrics.train_loss:.4f}, "
