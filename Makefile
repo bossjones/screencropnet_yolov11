@@ -4,7 +4,7 @@
 
 .DEFAULT_GOAL := help
 
-.PHONY: default install lint test open-coverage upgrade build clean agent-rules help monkeytype-create monkeytype-apply autotype
+.PHONY: default install lint test check open-coverage upgrade build clean agent-rules help monkeytype-create monkeytype-apply autotype
 
 default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -22,6 +22,11 @@ lint: ## Run linting tools
 test: ## Run tests with pytest
 	@echo "🚀 Running tests with pytest"
 	@uv run pytest
+
+.PHONY: check
+check: ## Run type checking with ty
+	@echo "🚀 Running type checking with ty"
+	@uv run ty check
 
 .PHONY: open-coverage
 open-coverage: ## Open coverage HTML report in browser
