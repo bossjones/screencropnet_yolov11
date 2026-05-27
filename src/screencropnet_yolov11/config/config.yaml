@@ -1,0 +1,206 @@
+# YOLO 11 Twitter Screenshot Detection - Configuration File
+# ============================================================
+
+# Dataset Configuration
+dataset:
+  # Path to dataset root directory (YOLO format expected)
+  path: "./datasets/twitter_screenshots_localization_dataset"
+  
+  # Roboflow integration (optional)
+  roboflow:
+    enabled: false
+    api_key: ""  # Set via environment variable ROBOFLOW_API_KEY
+    workspace: ""
+    project: ""
+    version: 1
+    format: "yolov11"
+  
+  # Train/Val/Test split ratios (used if auto_split is true)
+  auto_split: false
+  split_ratios:
+    train: 0.7
+    val: 0.2
+    test: 0.1
+  
+  # Random seed for reproducibility
+  seed: 42
+
+# Model Configuration
+model:
+  # Model size: nano (n), small (s), medium (m), large (l), xlarge (x)
+  size: "m"
+  
+  # Pretrained weights path (null for default pretrained)
+  weights: null
+  
+  # Number of classes (auto-detected from dataset if null)
+  num_classes: null
+  
+  # Class names for Twitter screenshot elements
+  class_names:
+    - "profile_info"
+    - "tweet_text"
+    - "engagement_metrics"
+    - "images"
+    - "retweet_section"
+    - "reply_button"
+    - "media_container"
+    - "hashtags"
+    - "mentions"
+    - "timestamp"
+    - "verified_badge"
+    - "quote_tweet"
+
+# Training Configuration
+training:
+  # Basic parameters
+  epochs: 100
+  batch_size: 16
+  image_size: 640
+  
+  # Learning rate settings
+  learning_rate: 0.01
+  lr_scheduler: "cosine"  # Options: cosine, linear, constant
+  warmup_epochs: 3
+  warmup_momentum: 0.8
+  warmup_bias_lr: 0.1
+  
+  # Optimizer
+  optimizer: "SGD"  # Options: SGD, Adam, AdamW
+  momentum: 0.937
+  weight_decay: 0.0005
+  
+  # Early stopping
+  patience: 20
+  min_delta: 0.001
+  
+  # Checkpointing
+  save_period: 10  # Save checkpoint every N epochs
+  save_best: true
+  
+  # Workers for data loading
+  workers: 8
+  
+  # Mixed precision training
+  amp: true
+
+# Device Configuration
+device:
+  # auto, cpu, cuda, mps, or specific GPU index (0, 1, etc.)
+  type: "auto"
+  
+  # Multi-GPU training
+  multi_gpu: false
+  gpu_ids: [0, 1]
+
+# Data Augmentation
+augmentation:
+  # Mosaic augmentation
+  mosaic: 1.0
+  
+  # MixUp augmentation
+  mixup: 0.0
+  
+  # Copy-paste augmentation
+  copy_paste: 0.0
+  
+  # Geometric transformations
+  degrees: 0.0  # Rotation (-degrees to +degrees)
+  translate: 0.1  # Translation (+/- fraction)
+  scale: 0.5  # Scale (+/- gain)
+  shear: 0.0  # Shear (+/- degrees)
+  perspective: 0.0  # Perspective (+/- fraction)
+  flipud: 0.0  # Flip up-down probability
+  fliplr: 0.5  # Flip left-right probability
+  
+  # Color augmentations
+  hsv_h: 0.015  # Hue augmentation
+  hsv_s: 0.7  # Saturation augmentation
+  hsv_v: 0.4  # Value augmentation
+  
+  # Twitter-specific: lower rotation/shear for text readability
+  erasing: 0.4  # Random erasing probability
+
+# Inference Configuration
+inference:
+  # Confidence threshold
+  confidence: 0.25
+  
+  # IoU threshold for NMS
+  iou_threshold: 0.45
+  
+  # Maximum detections per image
+  max_detections: 300
+  
+  # Augmented inference (TTA)
+  augment: false
+  
+  # Half precision inference
+  half: false
+
+# Validation Configuration
+validation:
+  # Run validation every N epochs
+  val_period: 1
+  
+  # Metrics to track
+  metrics:
+    - "mAP50"
+    - "mAP50-95"
+    - "precision"
+    - "recall"
+    - "f1"
+  
+  # Generate plots
+  plots: true
+  confusion_matrix: true
+
+# Export Configuration
+export:
+  formats:
+    - "pytorch"  # Default .pt format
+    - "onnx"     # ONNX format
+    # - "tensorrt"  # TensorRT (requires NVIDIA GPU)
+    # - "coreml"    # CoreML for Apple devices
+    # - "tflite"    # TensorFlow Lite
+  
+  # ONNX settings
+  onnx:
+    opset: 12
+    simplify: true
+    dynamic: false
+  
+  # Quantization
+  quantization:
+    enabled: false
+    type: "int8"  # Options: int8, fp16
+
+# Logging Configuration
+logging:
+  # Log level: DEBUG, INFO, WARNING, ERROR
+  level: "INFO"
+  
+  # Output directory
+  output_dir: "./runs/twitter_detect"
+  
+  # Experiment name
+  experiment_name: "twitter_yolo11"
+  
+  # TensorBoard
+  tensorboard: true
+  
+  # Weights & Biases (optional)
+  wandb:
+    enabled: false
+    project: "twitter-screenshot-detection"
+    entity: ""
+
+# Ablation Study Configuration
+ablation:
+  enabled: false
+  
+  # Parameters to test
+  parameters:
+    model_sizes: ["n", "s", "m"]
+    image_sizes: [416, 640, 832]
+    batch_sizes: [8, 16, 32]
