@@ -1,0 +1,12 @@
+# Gitignored files to copy from the main checkout into new `claude --worktree` worktrees.
+# Syntax matches .gitignore (negate with leading `!` if needed).
+# Reference: https://code.claude.com/docs/en/worktrees#copy-gitignored-files-into-worktrees
+
+# Secrets & local config the app/tools need at runtime
+.env
+
+# Per-user Claude permissions / allowlist
+.claude/settings.local.json
+
+# Cookiecutter / copier template state
+.copier-answers.yml
