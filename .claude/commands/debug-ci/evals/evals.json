@@ -1,31 +1,26 @@
 [
   {
-    "name": "luacheck_failure",
-    "description": "Diagnose and fix a luacheck CI failure (undefined global variable)",
+    "name": "ruff_check_failure",
+    "description": "Diagnose and fix a ruff lint failure (unused import)",
     "prompt": "/debug-ci",
     "setup": [
-      "echo 'local unused_var = 1' >> lua/user/plugins.lua",
-      "echo 'print(undefined_global_var)' >> lua/user/plugins.lua"
+      "printf '\\nimport os  # unused\\n' >> src/screencropnet_yolov11/inference.py"
     ],
     "teardown": [
-      "git checkout -- lua/user/plugins.lua"
+      "git checkout -- src/screencropnet_yolov11/inference.py"
     ],
     "expected_behaviors": [
       {
-        "description": "Identifies the luacheck failure category",
-        "assertion": "output contains reference to luacheck errors or warnings"
+        "description": "Identifies the ruff-check failure category",
+        "assertion": "output contains reference to ruff check errors or warnings"
       },
       {
-        "description": "Fixes the unused variable warning",
-        "assertion": "the unused variable is either removed or prefixed with underscore"
-      },
-      {
-        "description": "Fixes the undefined global",
-        "assertion": "the undefined global reference is removed or the global is declared"
+        "description": "Fixes the unused import",
+        "assertion": "the unused import is removed from src/screencropnet_yolov11/inference.py"
       },
       {
         "description": "Runs local validation before pushing",
-        "assertion": "luacheck is run locally and passes before any git push"
+        "assertion": "ruff check is run locally and passes before any git push"
       },
       {
         "description": "Uses conventional commit prefix",
@@ -38,27 +33,27 @@
     ]
   },
   {
-    "name": "stylua_formatting_drift",
-    "description": "Diagnose and fix a stylua formatting CI failure",
+    "name": "ruff_format_drift",
+    "description": "Diagnose and fix a ruff format CI failure (whitespace drift)",
     "prompt": "/debug-ci",
     "setup": [
-      "sed -i '' 's/^local /    local /' lua/user/keybindings.lua"
+      "sed -i '' 's/^def /    def /' src/screencropnet_yolov11/screencropnet_yolov11.py"
     ],
     "teardown": [
-      "git checkout -- lua/user/keybindings.lua"
+      "git checkout -- src/screencropnet_yolov11/screencropnet_yolov11.py"
     ],
     "expected_behaviors": [
       {
-        "description": "Identifies the stylua failure category",
-        "assertion": "output references stylua formatting issues"
+        "description": "Identifies the ruff format failure category",
+        "assertion": "output references ruff format or formatting drift"
       },
       {
-        "description": "Runs stylua to auto-format",
-        "assertion": "stylua command is executed to fix formatting"
+        "description": "Runs ruff format to auto-format",
+        "assertion": "uv run ruff format is executed to fix formatting"
       },
       {
         "description": "Validates formatting passes locally",
-        "assertion": "stylua --check is run and passes before pushing"
+        "assertion": "ruff format --check (or make lint) is run and passes before pushing"
       },
       {
         "description": "Uses style: commit prefix",
@@ -67,6 +62,36 @@
       {
         "description": "Polls for new CI run by commit SHA",
         "assertion": "after pushing, the new run is identified by matching headSha, not by picking the latest run"
+      }
+    ]
+  },
+  {
+    "name": "pytest_failure",
+    "description": "Diagnose and fix a failing pytest assertion",
+    "prompt": "/debug-ci",
+    "setup": [
+      "mkdir -p tests",
+      "printf 'def test_known_bad():\\n    assert 1 == 2\\n' > tests/test_intentional_failure.py"
+    ],
+    "teardown": [
+      "rm -f tests/test_intentional_failure.py"
+    ],
+    "expected_behaviors": [
+      {
+        "description": "Identifies the pytest failure category",
+        "assertion": "output references pytest or test failure"
+      },
+      {
+        "description": "Investigates the failing test or implementation",
+        "assertion": "the failing test file (or module under test) is read before applying a fix"
+      },
+      {
+        "description": "Runs pytest locally before pushing",
+        "assertion": "make test or uv run pytest is executed and passes before any git push"
+      },
+      {
+        "description": "Uses fix: commit prefix",
+        "assertion": "commit message starts with fix:"
       }
     ]
   },

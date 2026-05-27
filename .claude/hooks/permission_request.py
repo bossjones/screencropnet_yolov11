@@ -98,6 +98,12 @@ def is_safe_bash_command(command: str) -> bool:
     # Normalize command
     normalized = command.strip()
 
+    # Reject any chaining, redirection, or substitution; the safe-pattern regexes
+    # below only anchor at the start, so without this guard "ls; rm -rf /" would
+    # match `^ls\b` and be auto-allowed.
+    if any(ch in normalized for ch in (";", "|", "&", "`", "$", "\n", ">", "<")):
+        return False
+
     # Check against safe patterns
     for pattern in SAFE_BASH_COMMANDS:
         if re.search(pattern, normalized):

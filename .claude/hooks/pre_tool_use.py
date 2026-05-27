@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 ALLOWED_ENV_PATHS = {
-    str(Path.home() / '.claude' / 'channels' / 'telegram' / '.env'),
+    str((Path.home() / '.claude' / 'channels' / 'telegram' / '.env').resolve()),
 }
 
 def is_dangerous_rm_command(command):

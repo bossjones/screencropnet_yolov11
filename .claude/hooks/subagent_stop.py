@@ -105,6 +105,9 @@ def extract_task_context(input_data: dict) -> str:
                     continue
                 try:
                     entry = json.loads(line)
+                    # json.loads can return a list/string/None; guard before .get()
+                    if not isinstance(entry, dict):
+                        continue
 
                     # Look for user messages or initial prompts
                     entry_type = entry.get("type", "")

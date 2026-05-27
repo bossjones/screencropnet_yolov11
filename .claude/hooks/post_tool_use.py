@@ -3,6 +3,7 @@
 # requires-python = ">=3.13"
 # ///
 
+import fcntl
 import json
 import os
 import sys
@@ -18,21 +19,21 @@ def main():
         log_dir.mkdir(parents=True, exist_ok=True)
         log_path = log_dir / 'post_tool_use.json'
 
-        # Read existing log data or initialize empty list
-        if log_path.exists():
-            with open(log_path, 'r') as f:
-                try:
-                    log_data = json.load(f)
-                except (json.JSONDecodeError, ValueError):
-                    log_data = []
-        else:
-            log_data = []
-
-        # Append new data
-        log_data.append(input_data)
-
-        # Write back to file with formatting
-        with open(log_path, 'w') as f:
+        # Parallel agents fire PostToolUse concurrently; an unlocked
+        # read-modify-write corrupts the JSON array. Hold an exclusive flock
+        # across the whole transaction. 'a+' creates the file if missing.
+        with open(log_path, 'a+') as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            f.seek(0)
+            try:
+                log_data = json.load(f)
+            except (json.JSONDecodeError, ValueError):
+                log_data = []
+            if not isinstance(log_data, list):
+                log_data = []
+            log_data.append(input_data)
+            f.seek(0)
+            f.truncate()
             json.dump(log_data, f, indent=2)
 
         sys.exit(0)

@@ -145,6 +145,10 @@ def compute_session_cost(transcript_path: str | None) -> float:
                 except json.JSONDecodeError:
                     continue
 
+                # json.loads may return a list/string/None — guard before .get()
+                if not isinstance(entry, dict):
+                    continue
+
                 message = entry.get("message")
                 if not isinstance(message, dict):
                     continue
