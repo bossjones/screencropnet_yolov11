@@ -6,7 +6,8 @@
 
 .PHONY: default install lint test check open-coverage upgrade build clean agent-rules help monkeytype-create monkeytype-apply autotype
 
-default: agent-rules install lint test ## Run agent-rules, install, lint, and test
+default: install lint test ## Run install, lint, and test
+# default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
 .PHONY: install
 install: ## Install dependencies with all extras
@@ -42,18 +43,21 @@ build: ## Build the package distribution
 	@echo "🚀 Building package distribution"
 	@uv build
 
-.PHONY: agent-rules
-agent-rules: CLAUDE.md AGENTS.md ## Generate CLAUDE.md and AGENTS.md from .cursor/rules
-
-# Use .cursor/rules for sources of rules.
-# Create Claude and Codex rules from these.
-CLAUDE.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
-	@echo "🚀 Generating CLAUDE.md from .cursor/rules"
-	@cat .cursor/rules/general.mdc .cursor/rules/python.mdc > CLAUDE.md
-
-AGENTS.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
-	@echo "🚀 Generating AGENTS.md from .cursor/rules"
-	@cat .cursor/rules/general.mdc .cursor/rules/python.mdc > AGENTS.md
+# Disabled: agent-rules auto-generates CLAUDE.md/AGENTS.md from .cursor/rules,
+# clobbering hand-edited content. Re-enable (and restore `agent-rules` in
+# `default` above) once we decide how to merge generated + hand-written rules.
+# .PHONY: agent-rules
+# agent-rules: CLAUDE.md AGENTS.md ## Generate CLAUDE.md and AGENTS.md from .cursor/rules
+#
+# # Use .cursor/rules for sources of rules.
+# # Create Claude and Codex rules from these.
+# CLAUDE.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
+# 	@echo "🚀 Generating CLAUDE.md from .cursor/rules"
+# 	@cat .cursor/rules/general.mdc .cursor/rules/python.mdc > CLAUDE.md
+#
+# AGENTS.md: .cursor/rules/general.mdc .cursor/rules/python.mdc
+# 	@echo "🚀 Generating AGENTS.md from .cursor/rules"
+# 	@cat .cursor/rules/general.mdc .cursor/rules/python.mdc > AGENTS.md
 
 .PHONY: monkeytype-create
 monkeytype-create: ## Run tests with monkeytype tracing
@@ -76,7 +80,7 @@ clean: ## Remove build artifacts and cache directories
 	@rm -rf .pytest_cache/
 	@rm -rf .mypy_cache/
 	@rm -rf .venv/
-	@rm -rf CLAUDE.md AGENTS.md
+	# @rm -rf CLAUDE.md AGENTS.md  # disabled while agent-rules is commented out
 	@find . -type d -name "__pycache__" -exec rm -rf {} +
 
 .PHONY: help
