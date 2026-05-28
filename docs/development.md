@@ -22,8 +22,11 @@ The `Makefile` simply offers shortcuts to `uv` commands for developer convenienc
 # including dev dependencies and optional dependencies.
 make install
 
-# Run uv sync, lint, and test (and also generate agent rules):
+# Run uv sync, lint, and test:
 make
+
+# Type-check with ty (faster, in addition to basedpyright in `make lint`):
+make check
 
 # Build wheel:
 make build
@@ -69,14 +72,16 @@ See [uv docs](https://docs.astral.sh/uv/) for details.
 
 ## Agent Rules
 
-See [.cursor/rules](.cursor/rules) for agent rules.
-These are written for [Cursor](https://www.cursor.com/) but are also used by other
-agents because the Makefile will generate `CLAUDE.md` and `AGENTS.md` from the same
-rules.
+See [.cursor/rules](../.cursor/rules) for the canonical agent rules, written for
+[Cursor](https://www.cursor.com/) but applicable to any agent.
 
-```shell
-make agent-rules
-```
+`CLAUDE.md` (and `AGENTS.md`) are now **hand-edited and tracked in git** — they
+are the source of truth for project memory. The `make agent-rules` target that
+used to regenerate them from `.cursor/rules/*.mdc` is currently commented out in
+the `Makefile` to avoid clobbering hand edits, and `make` / `make clean` no
+longer touch those files. To regenerate from `.cursor/rules/` again, uncomment
+the `agent-rules`, `CLAUDE.md`, `AGENTS.md`, and matching `clean` lines in the
+`Makefile`.
 
 ## IDE setup
 
