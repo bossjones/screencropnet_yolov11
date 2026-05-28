@@ -7,7 +7,7 @@ description: Initial setup prompt - reads project structure and gains context
 
 ## Purpose
 
-Load project context by reading specs, agents, commands, skills, hooks, and tracked files to understand the current state of the `screencropnet_yolov11` (Twitter Screenshot Detection) codebase.
+Load project context by reading specs, agents, commands, skills, hooks, and tracked files to understand the current state of the `screencropnet_yolo` (Twitter Screenshot Detection) codebase.
 
 ## Workflow
 
@@ -18,4 +18,4 @@ Load project context by reading specs, agents, commands, skills, hooks, and trac
 5. Read `.claude/hooks/*`
 6. Read `justfile`
 7. Run `git ls-files`
-8. Report: "Project context loaded. Ready to assist with screencropnet_yolov11."
+8. Report: "Project context loaded. Ready to assist with screencropnet_yolo."

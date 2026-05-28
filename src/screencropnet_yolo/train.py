@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-YOLO 11 Twitter Screenshot Detection - Main Training Script
+YOLO 26 Twitter Screenshot Detection - Main Training Script
 
 Production-ready training script for detecting and classifying bounding boxes
-in Twitter screenshots using Ultralytics YOLO 11.
+in Twitter screenshots using Ultralytics YOLO 26.
 
 Usage:
     python train.py --config config/config.yaml
@@ -64,6 +64,8 @@ def setup_logging(output_dir: str, log_level: str = "INFO") -> None:
 
 
 logger = logging.getLogger(__name__)
+
+BANNER = "YOLO 26 Twitter Screenshot Detection"
 
 
 def load_config(config_path: str) -> dict[str, Any]:
@@ -173,7 +175,7 @@ def split_dataset_if_needed(config: dict[str, Any]) -> None:
 def train_model(config: dict[str, Any], resume_path: str | None = None) -> TrainingHistory:
     """Run model training."""
     logger.info("=" * 60)
-    logger.info("STARTING YOLO 11 TRAINING")
+    logger.info("STARTING YOLO 26 TRAINING")
     logger.info("=" * 60)
 
     # Create output directory
@@ -391,7 +393,7 @@ def run_ablation_study(config: dict[str, Any]) -> None:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="YOLO 11 Twitter Screenshot Detection Training",
+        description=f"{BANNER} Training",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -458,7 +460,7 @@ def main() -> int:
     # Setup logging
     setup_logging(config["logging"]["output_dir"], config["logging"].get("level", "INFO"))
 
-    logger.info("YOLO 11 Twitter Screenshot Detection")
+    logger.info(BANNER)
     logger.info(f"Config: {args.config}")
     logger.info(f"Output: {config['logging']['output_dir']}")
 

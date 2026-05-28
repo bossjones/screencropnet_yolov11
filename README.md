@@ -1,4 +1,4 @@
-# screencropnet_yolov11
+# screencropnet_yolo
 
 👉\[\[\[**This is the initial readme for your
 [simple-modern-uv](https://github.com/jlevy/simple-modern-uv) template.** Fill it in and

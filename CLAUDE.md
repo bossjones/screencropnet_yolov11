@@ -39,7 +39,7 @@ make autotype       # monkeytype-create (trace via pytest) + monkeytype-apply (a
 
 ## Architecture
 
-This is a YOLO 11 training/inference pipeline for detecting and classifying bounding boxes in Twitter screenshots, built on Ultralytics. The package lives at `src/screencropnet_yolov11/` (src-layout, hatchling build, dynamic version from git via `uv-dynamic-versioning`).
+This is a YOLO 26 training/inference pipeline for detecting and classifying bounding boxes in Twitter screenshots, built on Ultralytics. The package lives at `src/screencropnet_yolo/` (src-layout, hatchling build, dynamic version from git via `uv-dynamic-versioning`).
 
 Pipeline modules (each is a self-contained stage; the train script wires them together):
 
@@ -50,16 +50,16 @@ Pipeline modules (each is a self-contained stage; the train script wires them to
 - `inference.py` — runtime prediction on new images.
 - `visualization.py` — `TrainingVisualizer`, `ConfusionMatrixVisualizer`, `ResultsDashboard`. Plot helpers used by both training and evaluation.
 - `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Logs to a timestamped file under the run's output dir.
-- `screencropnet_yolov11.py` — package entrypoint exposed via `[project.scripts]` as the `screencropnet_yolov11` command (currently a stub `main()`).
+- `screencropnet_yolo.py` — package entrypoint exposed via `[project.scripts]` as the `screencropnet_yolo` command (currently a stub `main()`).
 - `config/config.yaml` — default training config consumed by `train.py --config`.
 
-Key external dependencies: `ultralytics` (YOLO 11), `torch`, `opencv-python`, `wandb` (experiment tracking), `matplotlib`/`seaborn` (plots), `albumentationsx` (augmentation, dev-only).
+Key external dependencies: `ultralytics` (YOLO 26), `torch`, `opencv-python`, `wandb` (experiment tracking), `matplotlib`/`seaborn` (plots), `albumentationsx` (augmentation, dev-only).
 
 ## Project conventions
 
 These come from `.cursor/rules/python.mdc` (full text is in the generated `CLAUDE.md`/`AGENTS.md`); the high-impact items:
 
-- **Imports**: always absolute (`from screencropnet_yolov11.module import ...`), never relative. Import `Callable` etc. from `collections.abc`; use `typing_extensions` for `@override` (we still support 3.11). Add `from __future__ import annotations` where types appear.
+- **Imports**: always absolute (`from screencropnet_yolo.module import ...`), never relative. Import `Callable` etc. from `collections.abc`; use `typing_extensions` for `@override` (we still support 3.11). Add `from __future__ import annotations` where types appear.
 - **Types**: modern union syntax (`str | None`, `list[str]`, `dict[str, X]`). Never import `Optional`. Use `@override` when overriding base methods.
 - **Files**: prefer `pathlib.Path` and `Path(...).read_text()` over `with open(...)`. Use `strif.atomic_output_file` for writes.
 - **Linting bar**: `make lint` and `make test` must be clean before considering work complete. Suppress basedpyright only with a specific `# pyright: ignore[ruleName]` and only when the warning is genuinely not a real problem. Globally disabling a rule in `pyproject.toml` requires explicit user confirmation.

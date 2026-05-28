@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.evaluation import (
+from screencropnet_yolo.evaluation import (
     ClassMetrics,
     EvaluationResults,
     Evaluator,

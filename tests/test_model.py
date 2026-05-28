@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.model import (
+from screencropnet_yolo.model import (
     AugmentationConfig,
     ModelConfig,
     ModelExporter,
@@ -30,40 +30,40 @@ def mock_torch_cuda(
 ) -> None:
     """Configure torch mocks for device detection tests."""
     mocker.patch(
-        "screencropnet_yolov11.model.torch.cuda.is_available",
+        "screencropnet_yolo.model.torch.cuda.is_available",
         return_value=cuda_available,
     )
     mocker.patch(
-        "screencropnet_yolov11.model.torch.cuda.device_count",
+        "screencropnet_yolo.model.torch.cuda.device_count",
         return_value=device_count,
     )
 
     if cuda_available and device_count > 0:
         mocker.patch(
-            "screencropnet_yolov11.model.torch.cuda.get_device_name",
+            "screencropnet_yolo.model.torch.cuda.get_device_name",
             side_effect=lambda i: f"NVIDIA GPU {i}",  # pyright: ignore[reportUnknownLambdaType]
         )
         mock_props = mocker.MagicMock()
         mock_props.total_memory = 16 * 1e9  # 16GB
         mocker.patch(
-            "screencropnet_yolov11.model.torch.cuda.get_device_properties",
+            "screencropnet_yolo.model.torch.cuda.get_device_properties",
             return_value=mock_props,
         )
 
     if has_mps_attr:
         mock_backends = mocker.MagicMock()
         mock_backends.mps.is_available.return_value = mps_available
-        mocker.patch("screencropnet_yolov11.model.torch.backends", mock_backends)
+        mocker.patch("screencropnet_yolo.model.torch.backends", mock_backends)
     else:
         mock_backends = mocker.MagicMock(spec=["cuda"])
-        mocker.patch("screencropnet_yolov11.model.torch.backends", mock_backends)
+        mocker.patch("screencropnet_yolo.model.torch.backends", mock_backends)
 
 
 def create_mock_yolo(mocker: MockerFixture) -> Any:
     """Create a mock YOLO model with common attributes."""
     mock_model = mocker.MagicMock()
     mock_model.task = "detect"
-    mock_model.type = "v11"
+    mock_model.type = "v26"
 
     # Mock internal model with parameters
     mock_param = mocker.MagicMock()
@@ -151,16 +151,16 @@ class TestModelFactory:
     def test_model_sizes_mapping(self) -> None:
         """MODEL_SIZES contains expected size mappings."""
         expected = {
-            "n": "yolo11n.pt",
-            "nano": "yolo11n.pt",
-            "s": "yolo11s.pt",
-            "small": "yolo11s.pt",
-            "m": "yolo11m.pt",
-            "medium": "yolo11m.pt",
-            "l": "yolo11l.pt",
-            "large": "yolo11l.pt",
-            "x": "yolo11x.pt",
-            "xlarge": "yolo11x.pt",
+            "n": "yolo26n.pt",
+            "nano": "yolo26n.pt",
+            "s": "yolo26s.pt",
+            "small": "yolo26s.pt",
+            "m": "yolo26m.pt",
+            "medium": "yolo26m.pt",
+            "l": "yolo26l.pt",
+            "large": "yolo26l.pt",
+            "x": "yolo26x.pt",
+            "xlarge": "yolo26x.pt",
         }
 
         assert ModelFactory.MODEL_SIZES == expected
@@ -222,7 +222,7 @@ class TestModelFactory:
     def test_create_model_with_custom_weights(self, mocker: MockerFixture) -> None:
         """Custom weights path is used when specified."""
         mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
-        mock_yolo = mocker.patch("screencropnet_yolov11.model.YOLO")
+        mock_yolo = mocker.patch("screencropnet_yolo.model.YOLO")
 
         config = ModelConfig(weights="/path/to/custom.pt")
         factory = ModelFactory(config)
@@ -233,13 +233,38 @@ class TestModelFactory:
     def test_create_model_with_size(self, mocker: MockerFixture) -> None:
         """Pretrained weights selected based on size."""
         mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
-        mock_yolo = mocker.patch("screencropnet_yolov11.model.YOLO")
+        mock_yolo = mocker.patch("screencropnet_yolo.model.YOLO")
 
         config = ModelConfig(size="large")
         factory = ModelFactory(config)
         factory.create_model()
 
-        mock_yolo.assert_called_once_with("yolo11l.pt")
+        mock_yolo.assert_called_once_with("yolo26l.pt")
+
+    def test_create_model_loads_yolo26_weights_by_default(self, mocker: MockerFixture) -> None:
+        """The default medium size resolves to the yolo26m checkpoint."""
+        mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
+        mock_yolo = mocker.patch("screencropnet_yolo.model.YOLO")
+
+        factory = ModelFactory(ModelConfig())
+        factory.create_model()
+
+        mock_yolo.assert_called_once_with("yolo26m.pt")
+
+    def test_create_model_log_says_yolo26(
+        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Model-load logging identifies the architecture as YOLO26."""
+        import logging
+
+        mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
+        mocker.patch("screencropnet_yolo.model.YOLO")
+
+        factory = ModelFactory(ModelConfig(size="s"))
+        with caplog.at_level(logging.INFO):
+            factory.create_model()
+
+        assert "YOLO26" in caplog.text
 
     def test_create_model_invalid_size(self, mocker: MockerFixture) -> None:
         """ValueError raised for invalid model size."""
@@ -255,7 +280,7 @@ class TestModelFactory:
         """create_model returns YOLO model instance."""
         mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
         mock_model = create_mock_yolo(mocker)
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         config = ModelConfig()
         factory = ModelFactory(config)
@@ -525,7 +550,7 @@ class TestModelQuantizer:
 
         mock_model = create_mock_yolo(mocker)
         mock_model.export.return_value = str(tmp_path / "model_int8.onnx")
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         quantizer = ModelQuantizer(str(model_file))
         result = quantizer.quantize_int8("/calibration/data", str(tmp_path / "output"))
@@ -542,7 +567,7 @@ class TestModelQuantizer:
 
         mock_model = create_mock_yolo(mocker)
         mock_model.export.return_value = str(tmp_path / "model_fp16.onnx")
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         quantizer = ModelQuantizer(str(model_file))
         result = quantizer.quantize_fp16(str(tmp_path / "output"))
@@ -561,13 +586,13 @@ class TestGetModelInfo:
         """Returns task and model_type from model."""
         mock_model = mocker.MagicMock()
         mock_model.task = "detect"
-        mock_model.type = "yolo11"
+        mock_model.type = "yolo26"
         del mock_model.model  # Remove model attribute
 
         result = get_model_info(mock_model)
 
         assert result["task"] == "detect"
-        assert result["model_type"] == "yolo11"
+        assert result["model_type"] == "yolo26"
 
     def test_with_parameters(self, mocker: MockerFixture) -> None:
         """Computes parameter counts when model.model exists."""
@@ -617,7 +642,7 @@ class TestCompareModels:
     def test_compare_models_basic(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Returns comparison dict with timing and detections."""
         mock_model = create_mock_yolo(mocker)
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         model1 = tmp_path / "model1.pt"
         model1.touch()
@@ -634,7 +659,7 @@ class TestCompareModels:
     def test_compare_models_runs_warmup(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Warmup prediction is run before timing."""
         mock_model = create_mock_yolo(mocker)
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         model1 = tmp_path / "model.pt"
         model1.touch()
@@ -657,7 +682,7 @@ class TestCompareModels:
         mock_model.type = "v11"
         del mock_model.model  # Remove for simplicity
 
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         model1 = tmp_path / "model.pt"
         model1.touch()
@@ -676,7 +701,7 @@ class TestCompareModels:
         mock_model.type = "v11"
         del mock_model.model
 
-        mocker.patch("screencropnet_yolov11.model.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.model.YOLO", return_value=mock_model)
 
         model1 = tmp_path / "model.pt"
         model1.touch()

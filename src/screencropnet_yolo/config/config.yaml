@@ -1,4 +1,4 @@
-# YOLO 11 Twitter Screenshot Detection - Configuration File
+# YOLO 26 Twitter Screenshot Detection - Configuration File
 # ============================================================
 
 # Dataset Configuration
@@ -33,23 +33,12 @@ model:
   # Pretrained weights path (null for default pretrained)
   weights: null
   
-  # Number of classes (auto-detected from dataset if null)
-  num_classes: null
-  
-  # Class names for Twitter screenshot elements
+  # Number of classes (single tweet_region class for YOLO26 localization)
+  num_classes: 1
+
+  # Class names: a single region covering the whole tweet
   class_names:
-    - "profile_info"
-    - "tweet_text"
-    - "engagement_metrics"
-    - "images"
-    - "retweet_section"
-    - "reply_button"
-    - "media_container"
-    - "hashtags"
-    - "mentions"
-    - "timestamp"
-    - "verified_badge"
-    - "quote_tweet"
+    - "tweet_region"
 
 # Training Configuration
 training:
@@ -184,7 +173,7 @@ logging:
   output_dir: "./runs/twitter_detect"
   
   # Experiment name
-  experiment_name: "twitter_yolo11"
+  experiment_name: "twitter_yolo26"
   
   # TensorBoard
   tensorboard: true

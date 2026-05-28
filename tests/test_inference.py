@@ -11,7 +11,7 @@ import numpy.typing as npt
 import pytest
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.inference import (
+from screencropnet_yolo.inference import (
     Detection,
     InferencePipeline,
     InferenceResult,
@@ -250,7 +250,7 @@ class TestInferencePipeline:
 
     def test_init_loads_model(self, mocker: MockerFixture) -> None:
         """Initializing pipeline loads YOLO model."""
-        mock_yolo = mocker.patch("screencropnet_yolov11.inference.YOLO")
+        mock_yolo = mocker.patch("screencropnet_yolo.inference.YOLO")
 
         InferencePipeline(
             model_path="/path/to/model.pt",
@@ -261,7 +261,7 @@ class TestInferencePipeline:
 
     def test_init_stores_parameters(self, mocker: MockerFixture) -> None:
         """Pipeline stores configuration parameters."""
-        mocker.patch("screencropnet_yolov11.inference.YOLO")
+        mocker.patch("screencropnet_yolo.inference.YOLO")
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -286,12 +286,12 @@ class TestInferencePipeline:
         mock_result.boxes = mock_boxes
         mock_model.predict.return_value = [mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         # Create a test image
         test_img = np.zeros((480, 640, 3), dtype=np.uint8)
         image_path = tmp_path / "test_image.jpg"
-        mocker.patch("screencropnet_yolov11.inference.cv2.imread", return_value=test_img)
+        mocker.patch("screencropnet_yolo.inference.cv2.imread", return_value=test_img)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -303,6 +303,41 @@ class TestInferencePipeline:
         assert result.image_size == (640, 480)
         assert len(result.detections) == 2
 
+    def test_inference_no_explicit_nms_call(self, mocker: MockerFixture) -> None:
+        """YOLO26 is end-to-end NMS-free: the pipeline must not post-process with apply_nms."""
+        mock_model = create_mock_yolo_model(mocker)
+        mock_boxes = create_mock_boxes(mocker, num_boxes=3)
+        mock_result = mocker.MagicMock()
+        mock_result.boxes = mock_boxes
+        mock_model.predict.return_value = [mock_result]
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
+        nms_spy = mocker.patch("screencropnet_yolo.inference.apply_nms")
+
+        pipeline = InferencePipeline(model_path="/model.pt", class_names=["tweet_region"])
+        pipeline.predict_image(np.zeros((480, 640, 3), dtype=np.uint8))
+
+        nms_spy.assert_not_called()
+
+    def test_inference_handles_e2e_results_shape(self, mocker: MockerFixture) -> None:
+        """The parser reads YOLO26's Results.boxes (.xyxy/.conf/.cls) into Detections."""
+        mock_model = create_mock_yolo_model(mocker)
+        mock_boxes = create_mock_boxes(mocker, num_boxes=3)
+        mock_result = mocker.MagicMock()
+        mock_result.boxes = mock_boxes
+        mock_model.predict.return_value = [mock_result]
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
+
+        pipeline = InferencePipeline(model_path="/model.pt", class_names=["tweet_region"])
+        result = pipeline.predict_image(np.zeros((480, 640, 3), dtype=np.uint8))
+
+        assert len(result.detections) == 3
+        # create_mock_boxes emits descending confidences 0.9, 0.7, 0.5
+        assert [round(d.confidence, 1) for d in result.detections] == [0.9, 0.7, 0.5]
+        assert [d.class_id for d in result.detections] == [0, 1, 2]
+        first = result.detections[0]
+        assert first.bbox == pytest.approx((10.0, 20.0, 110.0, 120.0))
+        assert first.bbox_normalized is not None
+
     def test_predict_image_with_numpy_array(self, mocker: MockerFixture) -> None:
         """predict_image processes numpy array directly."""
         mock_model = create_mock_yolo_model(mocker)
@@ -311,7 +346,7 @@ class TestInferencePipeline:
         mock_result.boxes = mock_boxes
         mock_model.predict.return_value = [mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -327,8 +362,8 @@ class TestInferencePipeline:
     def test_predict_image_failed_read(self, mocker: MockerFixture) -> None:
         """predict_image raises error for unreadable image."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
-        mocker.patch("screencropnet_yolov11.inference.cv2.imread", return_value=None)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.cv2.imread", return_value=None)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -341,7 +376,7 @@ class TestInferencePipeline:
     def test_predict_image_uses_custom_thresholds(self, mocker: MockerFixture) -> None:
         """Custom conf and iou thresholds are passed to model."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -362,7 +397,7 @@ class TestInferencePipeline:
         mock_result.boxes = None
         mock_model.predict.return_value = [mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -379,7 +414,7 @@ class TestInferencePipeline:
         mock_model = create_mock_yolo_model(mocker)
         mock_model.predict.return_value = []
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -413,7 +448,7 @@ class TestInferencePipeline:
         mock_result.boxes = mock_boxes
         mock_model.predict.return_value = [mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -434,10 +469,10 @@ class TestInferencePipeline:
         mock_result.boxes = mock_boxes
         mock_model.predict.return_value = [mock_result, mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         test_img = np.zeros((480, 640, 3), dtype=np.uint8)
-        mocker.patch("screencropnet_yolov11.inference.cv2.imread", return_value=test_img)
+        mocker.patch("screencropnet_yolo.inference.cv2.imread", return_value=test_img)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -460,7 +495,7 @@ class TestInferencePipeline:
         mock_result.boxes = None
         mock_model.predict.return_value = [mock_result, mock_result]
 
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -480,7 +515,7 @@ class TestInferencePipeline:
     def test_predict_video_opens_capture(self, mocker: MockerFixture) -> None:
         """predict_video opens video capture."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         mock_cap = mocker.MagicMock()
         mock_cap.isOpened.return_value = True
@@ -494,7 +529,7 @@ class TestInferencePipeline:
             (False, None)
         ]
 
-        mocker.patch("screencropnet_yolov11.inference.cv2.VideoCapture", return_value=mock_cap)
+        mocker.patch("screencropnet_yolo.inference.cv2.VideoCapture", return_value=mock_cap)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -509,11 +544,11 @@ class TestInferencePipeline:
     def test_predict_video_invalid_path(self, mocker: MockerFixture) -> None:
         """predict_video raises error for invalid video."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         mock_cap = mocker.MagicMock()
         mock_cap.isOpened.return_value = False
-        mocker.patch("screencropnet_yolov11.inference.cv2.VideoCapture", return_value=mock_cap)
+        mocker.patch("screencropnet_yolo.inference.cv2.VideoCapture", return_value=mock_cap)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -526,7 +561,7 @@ class TestInferencePipeline:
     def test_predict_video_with_output(self, mocker: MockerFixture, tmp_path: Path) -> None:
         """predict_video writes annotated video."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         mock_cap = mocker.MagicMock()
         mock_cap.isOpened.return_value = True
@@ -535,11 +570,11 @@ class TestInferencePipeline:
             (True, np.zeros((480, 640, 3), dtype=np.uint8)),
             (False, None),
         ]
-        mocker.patch("screencropnet_yolov11.inference.cv2.VideoCapture", return_value=mock_cap)
+        mocker.patch("screencropnet_yolo.inference.cv2.VideoCapture", return_value=mock_cap)
 
         mock_writer = mocker.MagicMock()
-        mocker.patch("screencropnet_yolov11.inference.cv2.VideoWriter", return_value=mock_writer)
-        mocker.patch("screencropnet_yolov11.inference.cv2.VideoWriter_fourcc", return_value=1)
+        mocker.patch("screencropnet_yolo.inference.cv2.VideoWriter", return_value=mock_writer)
+        mocker.patch("screencropnet_yolo.inference.cv2.VideoWriter_fourcc", return_value=1)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -555,7 +590,7 @@ class TestInferencePipeline:
     def test_draw_detections(self, mocker: MockerFixture) -> None:
         """_draw_detections annotates image with boxes."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",
@@ -575,7 +610,7 @@ class TestInferencePipeline:
     def test_get_color_palette(self, mocker: MockerFixture) -> None:
         """_get_color_palette returns list of RGB tuples."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.inference.YOLO", return_value=mock_model)
+        mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
         pipeline = InferencePipeline(
             model_path="/model.pt",

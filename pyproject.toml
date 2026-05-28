@@ -6,7 +6,7 @@ Repository = "https://github.com/bossjones/screencropnet_yolov11"
 # Documentation = "https://..."
 
 [project]
-name = "screencropnet_yolov11"
+name = "screencropnet_yolo"
 description = "changeme"
 authors = [
     { name="Malcolm Jones", email="bossjones@theblacktonystark.com" },
@@ -42,7 +42,7 @@ dependencies = [
     "opencv-python>=4.12.0.88",
     "pyyaml>=6.0.3",
     "seaborn>=0.13.2",
-    "ultralytics>=8.3.240",
+    "ultralytics>=8.4.52",
     "wandb>=0.23.1",
 ]
 
@@ -73,7 +73,7 @@ dev = [
 
 [project.scripts]
 # Add script entry points here:
-screencropnet_yolov11 = "screencropnet_yolov11:main"
+screencropnet_yolo = "screencropnet_yolo:main"
 
 
 # ---- Build system ----
@@ -98,7 +98,7 @@ bump = true
 
 [tool.hatch.build.targets.wheel]
 # The source location for the package.
-packages = ["src/screencropnet_yolov11"]
+packages = ["src/screencropnet_yolo"]
 
 
 # ---- Settings ----
@@ -183,6 +183,8 @@ reportUnannotatedClassAttribute = false
 
 [tool.pytest.ini_options]
 addopts = [
+    "-m",
+    "not integration",
     "--cov-branch",
     "--cov-report=annotate:cov_annotate",
     "--cov-report=html:htmlcov",

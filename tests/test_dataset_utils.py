@@ -10,7 +10,7 @@ import pytest
 import yaml
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.dataset_utils import (
+from screencropnet_yolo.dataset_utils import (
     DatasetSplitter,
     DatasetValidator,
     RoboflowLoader,
