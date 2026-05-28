@@ -32,14 +32,31 @@ def test_row_to_task_normalizes_to_percent() -> None:
     assert value["rectanglelabels"] == ["tweet_region"]
 
 
-def test_bbox_to_ls_value_rejects_out_of_bounds() -> None:
-    with pytest.raises(ValueError):
-        bbox_to_ls_value(xmin=0, ymin=0, xmax=200, ymax=50, width=100, height=100)
+def test_bbox_to_ls_value_clamps_out_of_bounds() -> None:
+    value = bbox_to_ls_value(xmin=-5, ymin=0, xmax=120, ymax=50, width=100, height=100)
+    assert value["x"] == pytest.approx(0.0)
+    assert value["width"] == pytest.approx(100.0)
+    assert value["height"] == pytest.approx(50.0)
 
 
 def test_bbox_to_ls_value_rejects_degenerate_box() -> None:
     with pytest.raises(ValueError):
         bbox_to_ls_value(xmin=10, ymin=10, xmax=10, ymax=20, width=100, height=100)
+
+
+def test_load_tasks_raises_on_missing_column(tmp_path: Path) -> None:
+    csv_path = tmp_path / "labels.csv"
+    csv_path.write_text(
+        dedent(
+            """\
+            img_path,xmin,ymin,xmax,ymax,height,label
+            train_images/ok.PNG,10,10,90,90,100,twitter
+            """
+        )
+    )
+
+    with pytest.raises(ValueError, match="missing required column"):
+        load_tasks(csv_path, images_url_prefix="/img")
 
 
 def test_load_tasks_skips_malformed_rows(tmp_path: Path) -> None:

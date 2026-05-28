@@ -84,9 +84,13 @@ def _copy_split(pairs: list[tuple[Path, Path]], out_dir: Path, split: str) -> No
 
 
 def write_data_yaml(out_dir: Path) -> Path:
-    """Write the single-class YOLO ``data.yaml`` and return its path."""
+    """Write the single-class YOLO ``data.yaml`` and return its path.
+
+    ``path`` is intentionally omitted so YOLO resolves ``train``/``val`` relative
+    to the ``data.yaml`` location, keeping the exported dataset portable across
+    machines and containers.
+    """
     data: dict[str, Any] = {
-        "path": str(out_dir.resolve()),
         "train": "train/images",
         "val": "val/images",
         "nc": 1,
@@ -106,7 +110,13 @@ def build_dataset(
     """Unpack the export, split, copy pairs, and write ``data.yaml``.
 
     Returns a summary dict with train/val counts and the ``data.yaml`` path.
+
+    Raises:
+        ValueError: if ``val_ratio`` is outside ``[0.0, 1.0]`` or the export
+            contains no image/label pairs.
     """
+    if not 0.0 <= val_ratio <= 1.0:
+        raise ValueError(f"val_ratio must be between 0.0 and 1.0, got {val_ratio}")
     out_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)

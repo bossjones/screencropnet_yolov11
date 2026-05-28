@@ -43,22 +43,29 @@ def bbox_to_ls_value(
     Label Studio rectangle ``value`` uses ``x``/``y``/``width``/``height`` as
     percentages of the image, with the origin at the top-left corner.
 
+    Coordinates are clamped to the image boundaries before conversion so minor
+    rounding/annotation overruns survive instead of dropping the row (matching
+    the ML backend's clamping). Genuinely degenerate boxes still raise.
+
     Raises:
-        ValueError: if the image dims are non-positive or the box is degenerate
-            or extends beyond the image bounds.
+        ValueError: if the image dims are non-positive or the box collapses to
+            zero area after clamping.
     """
     if width <= 0 or height <= 0:
         raise ValueError(f"non-positive image size: {width}x{height}")
-    if xmax <= xmin or ymax <= ymin:
+
+    x1 = max(0.0, min(width, xmin))
+    y1 = max(0.0, min(height, ymin))
+    x2 = max(0.0, min(width, xmax))
+    y2 = max(0.0, min(height, ymax))
+    if x2 <= x1 or y2 <= y1:
         raise ValueError(f"degenerate box: ({xmin},{ymin},{xmax},{ymax})")
-    if xmin < 0 or ymin < 0 or xmax > width or ymax > height:
-        raise ValueError(f"box out of bounds for {width}x{height}: ({xmin},{ymin},{xmax},{ymax})")
 
     return {
-        "x": xmin / width * 100.0,
-        "y": ymin / height * 100.0,
-        "width": (xmax - xmin) / width * 100.0,
-        "height": (ymax - ymin) / height * 100.0,
+        "x": x1 / width * 100.0,
+        "y": y1 / height * 100.0,
+        "width": (x2 - x1) / width * 100.0,
+        "height": (y2 - y1) / height * 100.0,
         "rotation": 0,
         "rectanglelabels": [LABEL],
     }
@@ -110,6 +117,10 @@ def load_tasks(
 
     Rows with malformed boxes are skipped. If ``images_root`` is given, rows
     whose image file is absent on disk are also skipped.
+
+    Raises:
+        ValueError: if the CSV is missing a required column (a structural error
+            that would otherwise silently skip every row).
     """
     tasks: list[dict[str, Any]] = []
     skipped = 0
@@ -122,7 +133,9 @@ def load_tasks(
                         skipped += 1
                         continue
                 tasks.append(row_to_task(row, images_url_prefix))
-            except (ValueError, KeyError):
+            except KeyError as e:
+                raise ValueError(f"CSV is missing required column: {e}") from e
+            except ValueError:
                 skipped += 1
     return tasks, skipped
 

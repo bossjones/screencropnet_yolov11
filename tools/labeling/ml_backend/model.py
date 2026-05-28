@@ -61,7 +61,9 @@ class TweetRegionModel(LabelStudioMLBase):
         self.input_size = int(os.environ.get("MODEL_INPUT_SIZE", "224"))
         ckpt = Path(os.environ.get("CHECKPOINT_PATH", str(_DEFAULT_CKPT)))
         self.model = ObjLocModel(pretrained=False)
-        self.model.load_state_dict(torch.load(ckpt, map_location=self.device))
+        self.model.load_state_dict(
+            torch.load(ckpt, map_location=self.device, weights_only=True)
+        )
         self.model.to(self.device)
         self.model.eval()
         self.transform = A.Compose([A.Resize(self.input_size, self.input_size), A.Normalize()])
@@ -96,8 +98,11 @@ class TweetRegionModel(LabelStudioMLBase):
     ) -> ModelResponse:
         predictions: list[dict[str, Any]] = []
         for task in tasks:
-            image_url = task["data"].get("image")
-            local_path = self.get_local_path(image_url, task_id=task.get("id"))
-            prediction = self._predict_one(local_path)
+            try:
+                image_url = task["data"].get("image")
+                local_path = self.get_local_path(image_url, task_id=task.get("id"))
+                prediction = self._predict_one(local_path)
+            except Exception:  # noqa: BLE001 - one bad image must not crash the batch
+                prediction = None
             predictions.append(prediction or {"model_version": MODEL_VERSION, "result": []})
         return ModelResponse(predictions=predictions)
