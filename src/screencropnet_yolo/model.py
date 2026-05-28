@@ -1,5 +1,5 @@
 """
-Model initialization and configuration for YOLO 11 Twitter Screenshot Detection.
+Model initialization and configuration for YOLO 26 Twitter Screenshot Detection.
 
 This module handles:
 - Model loading and initialization
@@ -51,17 +51,19 @@ class ModelConfig:
 class ModelFactory:
     """Factory class for creating and configuring YOLO models."""
 
+    # YOLO26 (Ultralytics >=8.4.52) detection checkpoints. Single source of
+    # truth for default weight selection by size alias.
     MODEL_SIZES = {
-        "n": "yolo11n.pt",
-        "nano": "yolo11n.pt",
-        "s": "yolo11s.pt",
-        "small": "yolo11s.pt",
-        "m": "yolo11m.pt",
-        "medium": "yolo11m.pt",
-        "l": "yolo11l.pt",
-        "large": "yolo11l.pt",
-        "x": "yolo11x.pt",
-        "xlarge": "yolo11x.pt",
+        "n": "yolo26n.pt",
+        "nano": "yolo26n.pt",
+        "s": "yolo26s.pt",
+        "small": "yolo26s.pt",
+        "m": "yolo26m.pt",
+        "medium": "yolo26m.pt",
+        "l": "yolo26l.pt",
+        "large": "yolo26l.pt",
+        "x": "yolo26x.pt",
+        "xlarge": "yolo26x.pt",
     }
 
     def __init__(self, config: ModelConfig):
@@ -129,13 +131,13 @@ class ModelFactory:
                     f"Valid options: {list(self.MODEL_SIZES.keys())}"
                 )
             weights_path = self.MODEL_SIZES[size_key]
-            logger.info(f"Loading pretrained YOLO11 {self.config.size} model")
+            logger.info(f"Loading pretrained YOLO26 {self.config.size} model")
 
         # Initialize model
         model = YOLO(weights_path)
 
         logger.info("Model initialized successfully")
-        logger.info(f"  Architecture: YOLO11-{self.config.size.upper()}")
+        logger.info(f"  Architecture: YOLO26-{self.config.size.upper()}")
         logger.info(f"  Device: {self.device}")
 
         return model

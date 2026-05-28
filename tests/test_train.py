@@ -12,7 +12,7 @@ import pytest
 import yaml
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.train import (
+from screencropnet_yolo.train import (
     create_visualizations,
     evaluate_model,
     export_model,
@@ -168,7 +168,7 @@ class TestSetupLogging:
 
     def test_log_level_info_default(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """INFO log level is set correctly."""
-        mock_basic_config = mocker.patch("screencropnet_yolov11.train.logging.basicConfig")
+        mock_basic_config = mocker.patch("screencropnet_yolo.train.logging.basicConfig")
 
         setup_logging(str(tmp_path), "INFO")
 
@@ -177,7 +177,7 @@ class TestSetupLogging:
 
     def test_log_level_debug(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """DEBUG log level is set correctly."""
-        mock_basic_config = mocker.patch("screencropnet_yolov11.train.logging.basicConfig")
+        mock_basic_config = mocker.patch("screencropnet_yolo.train.logging.basicConfig")
 
         setup_logging(str(tmp_path), "DEBUG")
 
@@ -299,9 +299,9 @@ class TestValidateDataset:
         mock_stats.class_distribution = {"tweet": 100, "retweet": 100}
         mock_validator.validate.return_value = (True, mock_stats, [])
 
-        mocker.patch("screencropnet_yolov11.train.DatasetValidator", return_value=mock_validator)
-        mocker.patch("screencropnet_yolov11.train.display_dataset_stats")
-        mocker.patch("screencropnet_yolov11.train.check_class_imbalance", return_value=[])
+        mocker.patch("screencropnet_yolo.train.DatasetValidator", return_value=mock_validator)
+        mocker.patch("screencropnet_yolo.train.display_dataset_stats")
+        mocker.patch("screencropnet_yolo.train.check_class_imbalance", return_value=[])
 
         config = create_sample_config()
         result = validate_dataset(config)
@@ -318,8 +318,8 @@ class TestValidateDataset:
             ["Error 1", "Error 2"],
         )
 
-        mocker.patch("screencropnet_yolov11.train.DatasetValidator", return_value=mock_validator)
-        mocker.patch("screencropnet_yolov11.train.display_dataset_stats")
+        mocker.patch("screencropnet_yolo.train.DatasetValidator", return_value=mock_validator)
+        mocker.patch("screencropnet_yolo.train.display_dataset_stats")
 
         config = create_sample_config()
         result = validate_dataset(config)
@@ -333,9 +333,9 @@ class TestValidateDataset:
         mock_stats = mocker.MagicMock()
         mock_validator.validate.return_value = (False, mock_stats, errors)
 
-        mocker.patch("screencropnet_yolov11.train.DatasetValidator", return_value=mock_validator)
-        mocker.patch("screencropnet_yolov11.train.display_dataset_stats")
-        mock_logger = mocker.patch("screencropnet_yolov11.train.logger")
+        mocker.patch("screencropnet_yolo.train.DatasetValidator", return_value=mock_validator)
+        mocker.patch("screencropnet_yolo.train.display_dataset_stats")
+        mock_logger = mocker.patch("screencropnet_yolo.train.logger")
 
         config = create_sample_config()
         validate_dataset(config)
@@ -350,13 +350,13 @@ class TestValidateDataset:
         mock_stats.class_distribution = {"tweet": 900, "retweet": 100}
         mock_validator.validate.return_value = (True, mock_stats, [])
 
-        mocker.patch("screencropnet_yolov11.train.DatasetValidator", return_value=mock_validator)
-        mocker.patch("screencropnet_yolov11.train.display_dataset_stats")
+        mocker.patch("screencropnet_yolo.train.DatasetValidator", return_value=mock_validator)
+        mocker.patch("screencropnet_yolo.train.display_dataset_stats")
         mocker.patch(
-            "screencropnet_yolov11.train.check_class_imbalance",
+            "screencropnet_yolo.train.check_class_imbalance",
             return_value=["Class 'retweet' is underrepresented"],
         )
-        mock_logger = mocker.patch("screencropnet_yolov11.train.logger")
+        mock_logger = mocker.patch("screencropnet_yolo.train.logger")
 
         config = create_sample_config()
         validate_dataset(config)
@@ -383,7 +383,7 @@ class TestLoadDatasetFromRoboflow:
         """When enabled, downloads dataset from Roboflow."""
         mock_loader = mocker.MagicMock()
         mock_loader.download.return_value = Path("/downloaded/dataset")
-        mocker.patch("screencropnet_yolov11.train.RoboflowLoader", return_value=mock_loader)
+        mocker.patch("screencropnet_yolo.train.RoboflowLoader", return_value=mock_loader)
 
         config = create_sample_config()
         config["dataset"]["roboflow"] = {
@@ -402,7 +402,7 @@ class TestLoadDatasetFromRoboflow:
 
     def test_api_key_from_config(self, mocker: MockerFixture) -> None:
         """API key from config is used."""
-        mock_loader_class = mocker.patch("screencropnet_yolov11.train.RoboflowLoader")
+        mock_loader_class = mocker.patch("screencropnet_yolo.train.RoboflowLoader")
         mock_loader_class.return_value.download.return_value = Path("/data")
 
         config = create_sample_config()
@@ -421,7 +421,7 @@ class TestLoadDatasetFromRoboflow:
 
     def test_api_key_from_env_fallback(self, mocker: MockerFixture) -> None:
         """Falls back to environment variable when config key is missing."""
-        mock_loader_class = mocker.patch("screencropnet_yolov11.train.RoboflowLoader")
+        mock_loader_class = mocker.patch("screencropnet_yolo.train.RoboflowLoader")
         mock_loader_class.return_value.download.return_value = Path("/data")
         mocker.patch.dict("os.environ", {"ROBOFLOW_API_KEY": "env_api_key"})
 
@@ -464,7 +464,7 @@ class TestSplitDatasetIfNeeded:
 
     def test_skips_when_auto_split_disabled(self, mocker: MockerFixture) -> None:
         """No split when auto_split is False."""
-        mock_splitter_class = mocker.patch("screencropnet_yolov11.train.DatasetSplitter")
+        mock_splitter_class = mocker.patch("screencropnet_yolo.train.DatasetSplitter")
 
         config = create_sample_config()
         config["dataset"]["auto_split"] = False
@@ -478,7 +478,7 @@ class TestSplitDatasetIfNeeded:
         mock_splitter = mocker.MagicMock()
         mock_splitter.split.return_value = {"train": 70, "val": 20, "test": 10}
         mock_splitter_class = mocker.patch(
-            "screencropnet_yolov11.train.DatasetSplitter", return_value=mock_splitter
+            "screencropnet_yolo.train.DatasetSplitter", return_value=mock_splitter
         )
 
         config = create_sample_config()
@@ -504,14 +504,14 @@ class TestTrainModel:
     def test_creates_dataset_yaml(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Dataset YAML file is created."""
         mock_create_yaml = mocker.patch(
-            "screencropnet_yolov11.train.create_dataset_yaml",
+            "screencropnet_yolo.train.create_dataset_yaml",
             return_value=str(tmp_path / "dataset.yaml"),
         )
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_trainer.train.return_value = create_mock_training_history(mocker)
-        mocker.patch("screencropnet_yolov11.train.Trainer", return_value=mock_trainer)
-        mocker.patch("screencropnet_yolov11.train.AugmentationConfig.get_augmentation")
+        mocker.patch("screencropnet_yolo.train.Trainer", return_value=mock_trainer)
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -522,15 +522,34 @@ class TestTrainModel:
         call_kwargs = mock_create_yaml.call_args[1]
         assert call_kwargs["class_names"] == ["tweet", "retweet"]
 
-    def test_creates_model_config(self, tmp_path: Path, mocker: MockerFixture) -> None:
-        """ModelConfig is created with correct parameters."""
-        mocker.patch("screencropnet_yolov11.train.create_dataset_yaml")
-        mock_model_config = mocker.patch("screencropnet_yolov11.train.ModelConfig")
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+    def test_log_banner_mentions_yolo26(
+        self, tmp_path: Path, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """The training start banner identifies the run as YOLO 26."""
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_trainer.train.return_value = create_mock_training_history(mocker)
-        mocker.patch("screencropnet_yolov11.train.Trainer", return_value=mock_trainer)
-        mocker.patch("screencropnet_yolov11.train.AugmentationConfig.get_augmentation")
+        mocker.patch("screencropnet_yolo.train.Trainer", return_value=mock_trainer)
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
+
+        config = create_sample_config()
+        config["logging"]["output_dir"] = str(tmp_path)
+
+        with caplog.at_level(logging.INFO):
+            train_model(config)
+
+        assert "YOLO 26" in caplog.text
+
+    def test_creates_model_config(self, tmp_path: Path, mocker: MockerFixture) -> None:
+        """ModelConfig is created with correct parameters."""
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mock_model_config = mocker.patch("screencropnet_yolo.train.ModelConfig")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
+        mock_trainer = mocker.MagicMock()
+        mock_trainer.train.return_value = create_mock_training_history(mocker)
+        mocker.patch("screencropnet_yolo.train.Trainer", return_value=mock_trainer)
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -544,15 +563,15 @@ class TestTrainModel:
 
     def test_creates_trainer_and_trains(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Trainer is created and train() is called."""
-        mocker.patch("screencropnet_yolov11.train.create_dataset_yaml")
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_history = create_mock_training_history(mocker)
         mock_trainer.train.return_value = mock_history
         mock_trainer_class = mocker.patch(
-            "screencropnet_yolov11.train.Trainer", return_value=mock_trainer
+            "screencropnet_yolo.train.Trainer", return_value=mock_trainer
         )
-        mocker.patch("screencropnet_yolov11.train.AugmentationConfig.get_augmentation")
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -565,13 +584,13 @@ class TestTrainModel:
 
     def test_resume_calls_resume_method(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Resume path triggers resume() instead of train()."""
-        mocker.patch("screencropnet_yolov11.train.create_dataset_yaml")
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_history = create_mock_training_history(mocker)
         mock_trainer.resume.return_value = mock_history
-        mocker.patch("screencropnet_yolov11.train.Trainer", return_value=mock_trainer)
-        mocker.patch("screencropnet_yolov11.train.AugmentationConfig.get_augmentation")
+        mocker.patch("screencropnet_yolo.train.Trainer", return_value=mock_trainer)
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -583,13 +602,13 @@ class TestTrainModel:
 
     def test_returns_training_history(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Returns TrainingHistory from trainer."""
-        mocker.patch("screencropnet_yolov11.train.create_dataset_yaml")
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_history = create_mock_training_history(mocker)
         mock_trainer.train.return_value = mock_history
-        mocker.patch("screencropnet_yolov11.train.Trainer", return_value=mock_trainer)
-        mocker.patch("screencropnet_yolov11.train.AugmentationConfig.get_augmentation")
+        mocker.patch("screencropnet_yolo.train.Trainer", return_value=mock_trainer)
+        mocker.patch("screencropnet_yolo.train.AugmentationConfig.get_augmentation")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -600,16 +619,16 @@ class TestTrainModel:
 
     def test_augmentation_config_merged(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Custom augmentation config is merged."""
-        mocker.patch("screencropnet_yolov11.train.create_dataset_yaml")
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
+        mocker.patch("screencropnet_yolo.train.create_dataset_yaml")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
         mock_trainer = mocker.MagicMock()
         mock_trainer.train.return_value = create_mock_training_history(mocker)
         mock_trainer_class = mocker.patch(
-            "screencropnet_yolov11.train.Trainer", return_value=mock_trainer
+            "screencropnet_yolo.train.Trainer", return_value=mock_trainer
         )
         mock_aug = {"mosaic": 1.0, "fliplr": 0.5}
         mocker.patch(
-            "screencropnet_yolov11.train.AugmentationConfig.get_augmentation",
+            "screencropnet_yolo.train.AugmentationConfig.get_augmentation",
             return_value=mock_aug.copy(),
         )
 
@@ -636,7 +655,7 @@ class TestEvaluateModel:
         mock_evaluator = mocker.MagicMock()
         mock_results = create_mock_evaluation_results(mocker)
         mock_evaluator.evaluate.return_value = mock_results
-        mocker.patch("screencropnet_yolov11.train.Evaluator", return_value=mock_evaluator)
+        mocker.patch("screencropnet_yolo.train.Evaluator", return_value=mock_evaluator)
 
         config = create_sample_config()
 
@@ -652,7 +671,7 @@ class TestEvaluateModel:
         mock_evaluator = mocker.MagicMock()
         mock_results = create_mock_evaluation_results(mocker)
         mock_evaluator.evaluate.return_value = mock_results
-        mocker.patch("screencropnet_yolov11.train.Evaluator", return_value=mock_evaluator)
+        mocker.patch("screencropnet_yolo.train.Evaluator", return_value=mock_evaluator)
 
         config = create_sample_config()
 
@@ -668,7 +687,7 @@ class TestEvaluateModel:
         mock_evaluator = mocker.MagicMock()
         mock_results = create_mock_evaluation_results(mocker)
         mock_evaluator.evaluate.return_value = mock_results
-        mocker.patch("screencropnet_yolov11.train.Evaluator", return_value=mock_evaluator)
+        mocker.patch("screencropnet_yolo.train.Evaluator", return_value=mock_evaluator)
 
         config = create_sample_config()
         config["inference"]["confidence"] = 0.5
@@ -696,7 +715,7 @@ class TestExportModel:
             "pytorch": "/model.pt",
             "onnx": "/model.onnx",
         }
-        mocker.patch("screencropnet_yolov11.train.ModelExporter", return_value=mock_exporter)
+        mocker.patch("screencropnet_yolo.train.ModelExporter", return_value=mock_exporter)
 
         config = create_sample_config()
         config["export"]["formats"] = ["pytorch", "onnx"]
@@ -713,7 +732,7 @@ class TestExportModel:
         mocker.patch("ultralytics.YOLO", return_value=mock_yolo)
         mock_exporter = mocker.MagicMock()
         mock_exporter.export.return_value = {"onnx": "/model.onnx"}
-        mocker.patch("screencropnet_yolov11.train.ModelExporter", return_value=mock_exporter)
+        mocker.patch("screencropnet_yolo.train.ModelExporter", return_value=mock_exporter)
 
         config = create_sample_config()
         config["export"]["formats"] = ["onnx"]
@@ -733,7 +752,7 @@ class TestExportModel:
         mock_exporter = mocker.MagicMock()
         expected = {"pytorch": "/model.pt", "onnx": "/model.onnx"}
         mock_exporter.export.return_value = expected
-        mocker.patch("screencropnet_yolov11.train.ModelExporter", return_value=mock_exporter)
+        mocker.patch("screencropnet_yolo.train.ModelExporter", return_value=mock_exporter)
 
         config = create_sample_config()
 
@@ -751,9 +770,9 @@ class TestCreateVisualizations:
     def test_creates_visualizations_directory(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Visualizations directory is created."""
         mock_viz = mocker.MagicMock()
-        mocker.patch("screencropnet_yolov11.train.TrainingVisualizer", return_value=mock_viz)
-        mocker.patch("screencropnet_yolov11.train.ConfusionMatrixVisualizer")
-        mocker.patch("screencropnet_yolov11.train.ResultsDashboard")
+        mocker.patch("screencropnet_yolo.train.TrainingVisualizer", return_value=mock_viz)
+        mocker.patch("screencropnet_yolo.train.ConfusionMatrixVisualizer")
+        mocker.patch("screencropnet_yolo.train.ResultsDashboard")
 
         config = create_sample_config()
         history = create_mock_training_history(mocker)
@@ -767,9 +786,9 @@ class TestCreateVisualizations:
     def test_creates_training_curves(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Training curves are plotted."""
         mock_viz = mocker.MagicMock()
-        mocker.patch("screencropnet_yolov11.train.TrainingVisualizer", return_value=mock_viz)
-        mocker.patch("screencropnet_yolov11.train.ConfusionMatrixVisualizer")
-        mocker.patch("screencropnet_yolov11.train.ResultsDashboard")
+        mocker.patch("screencropnet_yolo.train.TrainingVisualizer", return_value=mock_viz)
+        mocker.patch("screencropnet_yolo.train.ConfusionMatrixVisualizer")
+        mocker.patch("screencropnet_yolo.train.ResultsDashboard")
 
         config = create_sample_config()
         history = create_mock_training_history(mocker)
@@ -782,9 +801,9 @@ class TestCreateVisualizations:
 
     def test_creates_confusion_matrix(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Confusion matrix is plotted when available."""
-        mocker.patch("screencropnet_yolov11.train.TrainingVisualizer")
-        mock_cm_viz = mocker.patch("screencropnet_yolov11.train.ConfusionMatrixVisualizer")
-        mocker.patch("screencropnet_yolov11.train.ResultsDashboard")
+        mocker.patch("screencropnet_yolo.train.TrainingVisualizer")
+        mock_cm_viz = mocker.patch("screencropnet_yolo.train.ConfusionMatrixVisualizer")
+        mocker.patch("screencropnet_yolo.train.ResultsDashboard")
 
         config = create_sample_config()
         history = create_mock_training_history(mocker)
@@ -797,9 +816,9 @@ class TestCreateVisualizations:
 
     def test_skips_confusion_matrix_when_none(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Confusion matrix is skipped when None."""
-        mocker.patch("screencropnet_yolov11.train.TrainingVisualizer")
-        mock_cm_viz = mocker.patch("screencropnet_yolov11.train.ConfusionMatrixVisualizer")
-        mocker.patch("screencropnet_yolov11.train.ResultsDashboard")
+        mocker.patch("screencropnet_yolo.train.TrainingVisualizer")
+        mock_cm_viz = mocker.patch("screencropnet_yolo.train.ConfusionMatrixVisualizer")
+        mocker.patch("screencropnet_yolo.train.ResultsDashboard")
 
         config = create_sample_config()
         history = create_mock_training_history(mocker)
@@ -812,10 +831,10 @@ class TestCreateVisualizations:
 
     def test_creates_dashboard(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Results dashboard is created."""
-        mocker.patch("screencropnet_yolov11.train.TrainingVisualizer")
-        mocker.patch("screencropnet_yolov11.train.ConfusionMatrixVisualizer")
+        mocker.patch("screencropnet_yolo.train.TrainingVisualizer")
+        mocker.patch("screencropnet_yolo.train.ConfusionMatrixVisualizer")
         mock_dashboard = mocker.MagicMock()
-        mocker.patch("screencropnet_yolov11.train.ResultsDashboard", return_value=mock_dashboard)
+        mocker.patch("screencropnet_yolo.train.ResultsDashboard", return_value=mock_dashboard)
 
         config = create_sample_config()
         history = create_mock_training_history(mocker)
@@ -834,8 +853,8 @@ class TestRunAblationStudy:
 
     def test_runs_when_enabled(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Ablation study runs when enabled."""
-        mocker.patch("screencropnet_yolov11.train.ModelFactory")
-        mock_create_ablation = mocker.patch("screencropnet_yolov11.train.create_ablation_study")
+        mocker.patch("screencropnet_yolo.train.ModelFactory")
+        mock_create_ablation = mocker.patch("screencropnet_yolo.train.create_ablation_study")
 
         config = create_sample_config()
         config["logging"]["output_dir"] = str(tmp_path)
@@ -847,7 +866,7 @@ class TestRunAblationStudy:
 
     def test_skips_when_disabled(self, mocker: MockerFixture) -> None:
         """Ablation study skipped when disabled."""
-        mock_create_ablation = mocker.patch("screencropnet_yolov11.train.create_ablation_study")
+        mock_create_ablation = mocker.patch("screencropnet_yolo.train.create_ablation_study")
 
         config = create_sample_config()
         config["ablation"]["enabled"] = False
@@ -911,20 +930,20 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(config=str(tmp_path / "config.yaml")),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=True)
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
         mock_history = create_mock_training_history(mocker)
-        mocker.patch("screencropnet_yolov11.train.train_model", return_value=mock_history)
+        mocker.patch("screencropnet_yolo.train.train_model", return_value=mock_history)
 
         # Create fake model weights
         weights_dir = tmp_path / "train" / "weights"
@@ -932,12 +951,12 @@ class TestMain:
         (weights_dir / "best.pt").touch()
 
         mock_results = create_mock_evaluation_results(mocker)
-        mocker.patch("screencropnet_yolov11.train.evaluate_model", return_value=mock_results)
-        mocker.patch("screencropnet_yolov11.train.export_model")
-        mocker.patch("screencropnet_yolov11.train.create_visualizations")
-        mocker.patch("screencropnet_yolov11.train.run_ablation_study")
+        mocker.patch("screencropnet_yolo.train.evaluate_model", return_value=mock_results)
+        mocker.patch("screencropnet_yolo.train.export_model")
+        mocker.patch("screencropnet_yolo.train.create_visualizations")
+        mocker.patch("screencropnet_yolo.train.run_ablation_study")
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -949,21 +968,21 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(validate_only=True),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=True)
-        mock_train = mocker.patch("screencropnet_yolov11.train.train_model")
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
+        mock_train = mocker.patch("screencropnet_yolo.train.train_model")
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -976,25 +995,25 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(eval_only="/model/best.pt"),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=True)
-        mock_train = mocker.patch("screencropnet_yolov11.train.train_model")
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
+        mock_train = mocker.patch("screencropnet_yolo.train.train_model")
         mock_eval = mocker.patch(
-            "screencropnet_yolov11.train.evaluate_model",
+            "screencropnet_yolo.train.evaluate_model",
             return_value=create_mock_evaluation_results(mocker),
         )
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -1008,22 +1027,22 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(export_only="/model/best.pt"),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=True)
-        mock_train = mocker.patch("screencropnet_yolov11.train.train_model")
-        mock_export = mocker.patch("screencropnet_yolov11.train.export_model")
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
+        mock_train = mocker.patch("screencropnet_yolo.train.train_model")
+        mock_export = mocker.patch("screencropnet_yolo.train.export_model")
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -1037,20 +1056,20 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=False)
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=False)
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -1062,19 +1081,19 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             side_effect=Exception("Network error"),
         )
-        mock_logger = mocker.patch("screencropnet_yolov11.train.logger")
+        mock_logger = mocker.patch("screencropnet_yolo.train.logger")
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         result = main()
 
@@ -1087,20 +1106,20 @@ class TestMain:
         config["logging"]["output_dir"] = str(tmp_path)
 
         mocker.patch(
-            "screencropnet_yolov11.train.parse_args",
+            "screencropnet_yolo.train.parse_args",
             return_value=create_mock_args(),
         )
-        mocker.patch("screencropnet_yolov11.train.load_config", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.merge_config_with_args", return_value=config)
-        mocker.patch("screencropnet_yolov11.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
         mocker.patch(
-            "screencropnet_yolov11.train.load_dataset_from_roboflow",
+            "screencropnet_yolo.train.load_dataset_from_roboflow",
             return_value="/data",
         )
-        mocker.patch("screencropnet_yolov11.train.split_dataset_if_needed")
-        mocker.patch("screencropnet_yolov11.train.validate_dataset", return_value=True)
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
         mocker.patch(
-            "screencropnet_yolov11.train.train_model",
+            "screencropnet_yolo.train.train_model",
             return_value=create_mock_training_history(mocker),
         )
 
@@ -1110,14 +1129,14 @@ class TestMain:
         (weights_dir / "last.pt").touch()
 
         mock_eval = mocker.patch(
-            "screencropnet_yolov11.train.evaluate_model",
+            "screencropnet_yolo.train.evaluate_model",
             return_value=create_mock_evaluation_results(mocker),
         )
-        mocker.patch("screencropnet_yolov11.train.export_model")
-        mocker.patch("screencropnet_yolov11.train.create_visualizations")
-        mocker.patch("screencropnet_yolov11.train.run_ablation_study")
+        mocker.patch("screencropnet_yolo.train.export_model")
+        mocker.patch("screencropnet_yolo.train.create_visualizations")
+        mocker.patch("screencropnet_yolo.train.run_ablation_study")
 
-        from screencropnet_yolov11.train import main
+        from screencropnet_yolo.train import main
 
         main()
 

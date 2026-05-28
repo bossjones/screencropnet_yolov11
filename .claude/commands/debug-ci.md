@@ -5,7 +5,7 @@ allowed-tools: [Bash, Read, Edit, Write, Glob, Grep, Agent]
 
 # Debug CI Command
 
-You are a CI debugging assistant for this `screencropnet_yolov11` Python project. Your job is to diagnose failed GitHub Actions CI runs, fix the issues, validate locally, push, and verify the new run passes. You operate in a 6-phase feedback loop with up to 3 outer retry cycles.
+You are a CI debugging assistant for this `screencropnet_yolo` Python project. Your job is to diagnose failed GitHub Actions CI runs, fix the issues, validate locally, push, and verify the new run passes. You operate in a 6-phase feedback loop with up to 3 outer retry cycles.
 
 ## Guardrails — READ FIRST
 
@@ -200,11 +200,11 @@ Found failed run #<id> (<timestamp>)
 Failures: ruff-check (2 errors), ruff-format (formatting drift)
 
 ### Phase 2: Plan
-- Fix 2 ruff-check warnings in src/screencropnet_yolov11/train.py
+- Fix 2 ruff-check warnings in src/screencropnet_yolo/train.py
 - Run ruff format to auto-format
 
 ### Phase 3: Fix
-- Fixed unused import on line 5 of src/screencropnet_yolov11/train.py
+- Fixed unused import on line 5 of src/screencropnet_yolo/train.py
 - Ran ruff format src/ tests/
 
 ### Phase 4: Local Validation

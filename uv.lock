@@ -1794,7 +1794,7 @@ wheels = [
 ]
 
 [[package]]
-name = "screencropnet-yolov11"
+name = "screencropnet-yolo"
 source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },
@@ -1833,7 +1833,7 @@ requires-dist = [
     { name = "opencv-python", specifier = ">=4.12.0.88" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "seaborn", specifier = ">=0.13.2" },
-    { name = "ultralytics", specifier = ">=8.3.240" },
+    { name = "ultralytics", specifier = ">=8.4.52" },
     { name = "wandb", specifier = ">=0.23.1" },
 ]
 
@@ -2293,7 +2293,7 @@ wheels = [
 
 [[package]]
 name = "ultralytics"
-version = "8.3.240"
+version = "8.4.56"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -2309,9 +2309,9 @@ dependencies = [
     { name = "torchvision" },
     { name = "ultralytics-thop" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/54/47/f5801fd9fb41fc176fc09435ba719c4afac9ff455759fead9126d3d5a355/ultralytics-8.3.240.tar.gz", hash = "sha256:dac0a0e1b999ace2e42845f600156b1c1a6987647a0de302290e6ede8492ff82", size = 984421, upload-time = "2025-12-17T13:13:22.602Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/38/73/440a7aa53aafaed46b106f1633385f390bebd300951cf15daf02a73b2c81/ultralytics-8.4.56.tar.gz", hash = "sha256:403f301cd4556b81fd13f5ca6dfcf2d3d6f31cf13cec0db79e655a086214318f", size = 1065497, upload-time = "2026-05-27T03:56:40.189Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/cd/0c4ae4c85f15b230085efa2f12c1c96c7a0f7bef6f70e3a614ea5b334be6/ultralytics-8.3.240-py3-none-any.whl", hash = "sha256:b21179e8af29a5ca8c063e662b79b8a6ab7a84b788a200270d8723f4d611d3e1", size = 1147668, upload-time = "2025-12-17T13:13:20.511Z" },
+    { url = "https://files.pythonhosted.org/packages/55/3f/7c86e841462a5f394c5f446943b5776b298aed418a6fd12386da70672660/ultralytics-8.4.56-py3-none-any.whl", hash = "sha256:84185b7c8ad91a8974bb4c5a42a14aeebb87a8c051cc64a5191758ed7d91fb95", size = 1266431, upload-time = "2026-05-27T03:56:35.698Z" },
 ]
 
 [[package]]

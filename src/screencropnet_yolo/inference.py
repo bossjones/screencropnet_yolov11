@@ -1,5 +1,5 @@
 """
-Inference module for YOLO 11 Twitter Screenshot Detection.
+Inference module for YOLO 26 Twitter Screenshot Detection.
 
 This module handles:
 - Single image inference
@@ -104,7 +104,7 @@ class InferenceResult:
 
 class InferencePipeline:
     """
-    Inference pipeline for YOLO 11 Twitter Screenshot Detection.
+    Inference pipeline for YOLO 26 Twitter Screenshot Detection.
 
     Provides methods for running inference on images, batches, and videos.
     """
@@ -381,7 +381,7 @@ class InferencePipeline:
 
             # Display
             if show:
-                cv2.imshow("YOLO 11 Twitter Detection", annotated)
+                cv2.imshow("YOLO 26 Twitter Detection", annotated)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 

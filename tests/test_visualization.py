@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from matplotlib.figure import Figure
 
-from screencropnet_yolov11.visualization import (
+from screencropnet_yolo.visualization import (
     ConfusionMatrixVisualizer,
     DatasetVisualizer,
     DetectionVisualizer,

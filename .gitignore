@@ -182,7 +182,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .claude/settings.local.json
-src/screencropnet_yolov11/config/datasets/
+src/screencropnet_yolo/config/datasets/
 
 cov.xml
 junit/

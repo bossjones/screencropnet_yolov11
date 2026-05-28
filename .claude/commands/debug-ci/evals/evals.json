@@ -4,10 +4,10 @@
     "description": "Diagnose and fix a ruff lint failure (unused import)",
     "prompt": "/debug-ci",
     "setup": [
-      "printf '\\nimport os  # unused\\n' >> src/screencropnet_yolov11/inference.py"
+      "printf '\\nimport os  # unused\\n' >> src/screencropnet_yolo/inference.py"
     ],
     "teardown": [
-      "git checkout -- src/screencropnet_yolov11/inference.py"
+      "git checkout -- src/screencropnet_yolo/inference.py"
     ],
     "expected_behaviors": [
       {
@@ -16,7 +16,7 @@
       },
       {
         "description": "Fixes the unused import",
-        "assertion": "the unused import is removed from src/screencropnet_yolov11/inference.py"
+        "assertion": "the unused import is removed from src/screencropnet_yolo/inference.py"
       },
       {
         "description": "Runs local validation before pushing",
@@ -37,10 +37,10 @@
     "description": "Diagnose and fix a ruff format CI failure (whitespace drift)",
     "prompt": "/debug-ci",
     "setup": [
-      "sed -i '' 's/^def /    def /' src/screencropnet_yolov11/screencropnet_yolov11.py"
+      "sed -i '' 's/^def /    def /' src/screencropnet_yolo/screencropnet_yolo.py"
     ],
     "teardown": [
-      "git checkout -- src/screencropnet_yolov11/screencropnet_yolov11.py"
+      "git checkout -- src/screencropnet_yolo/screencropnet_yolo.py"
     ],
     "expected_behaviors": [
       {

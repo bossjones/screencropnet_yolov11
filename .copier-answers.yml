@@ -5,5 +5,5 @@ package_author_email: bossjones@theblacktonystark.com
 package_author_name: Malcolm Jones
 package_description: changeme
 package_github_org: bossjones
-package_module: screencropnet_yolov11
-package_name: screencropnet_yolov11
+package_module: screencropnet_yolo
+package_name: screencropnet_yolo

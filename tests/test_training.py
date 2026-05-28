@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pytest
 from pytest_mock import MockerFixture
 
-from screencropnet_yolov11.training import (
+from screencropnet_yolo.training import (
     CheckpointCallback,
     EarlyStopping,
     MetricsLogger,
@@ -745,12 +745,12 @@ class TestTrainer:
 
     def test_init_creates_output_dir(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """Output directory is created on init."""
-        mocker.patch("screencropnet_yolov11.training.YOLO")
+        mocker.patch("screencropnet_yolo.training.YOLO")
         mock_model = create_mock_yolo_model(mocker)
         output_dir = tmp_path / "training_output"
 
         # Mock TensorBoardCallback to avoid tensorboard import
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         Trainer(mock_model, "data.yaml", str(output_dir), {})
 
@@ -759,7 +759,7 @@ class TestTrainer:
     def test_init_sets_history_and_callbacks(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """History and callbacks are initialized."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
 
@@ -771,7 +771,7 @@ class TestTrainer:
     ) -> None:
         """Early stopping callback added when patience > 0."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {"patience": 10})
 
@@ -784,7 +784,7 @@ class TestTrainer:
     ) -> None:
         """No early stopping when patience is 0."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {"patience": 0})
 
@@ -796,7 +796,7 @@ class TestTrainer:
     ) -> None:
         """TensorBoard callback not added when disabled."""
         mock_model = create_mock_yolo_model(mocker)
-        tb_mock = mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        tb_mock = mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         Trainer(mock_model, "data.yaml", str(tmp_path), {"tensorboard": False})
 
@@ -807,8 +807,8 @@ class TestTrainer:
     ) -> None:
         """WandB callback added when enabled."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
-        wandb_mock = mocker.patch("screencropnet_yolov11.training.WandbCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
+        wandb_mock = mocker.patch("screencropnet_yolo.training.WandbCallback")
 
         config = {"wandb": {"enabled": True, "project": "test-proj"}}
         Trainer(mock_model, "data.yaml", str(tmp_path), config)
@@ -818,7 +818,7 @@ class TestTrainer:
     def test_add_callback_appends(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """add_callback() appends to callbacks list."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
         initial_count = len(trainer.callbacks)
@@ -832,7 +832,7 @@ class TestTrainer:
     def test_register_callbacks_hooks_to_model(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """_register_callbacks() registers hooks with model."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
         trainer._register_callbacks()
@@ -849,7 +849,7 @@ class TestTrainer:
     def test_train_calls_model_train(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """train() calls model.train() with correct args."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         config = {
@@ -872,7 +872,7 @@ class TestTrainer:
     def test_train_saves_history(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """train() saves history JSON file."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
@@ -884,7 +884,7 @@ class TestTrainer:
     def test_train_returns_history(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """train() returns TrainingHistory instance."""
         mock_model = create_mock_yolo_model(mocker)
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
@@ -896,7 +896,7 @@ class TestTrainer:
         """train() logs and re-raises exceptions."""
         mock_model = create_mock_yolo_model(mocker)
         mock_model.train.side_effect = RuntimeError("Training failed")
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
 
@@ -906,9 +906,9 @@ class TestTrainer:
     def test_resume_loads_checkpoint(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """resume() loads model from checkpoint and continues training."""
         mock_model = create_mock_yolo_model(mocker)
-        mock_yolo_class = mocker.patch("screencropnet_yolov11.training.YOLO")
+        mock_yolo_class = mocker.patch("screencropnet_yolo.training.YOLO")
         mock_yolo_class.return_value = mock_model
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
@@ -928,7 +928,7 @@ class TestCreateAblationStudy:
         mock_factory.create_model.return_value = mock_model
         mock_factory.config = mocker.MagicMock()
 
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         ablation_config = {"learning_rate": [0.01, 0.001, 0.0001]}
@@ -950,7 +950,7 @@ class TestCreateAblationStudy:
         mock_factory.create_model.return_value = mock_model
         mock_factory.config = mocker.MagicMock()
 
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         ablation_config = {
@@ -976,7 +976,7 @@ class TestCreateAblationStudy:
         mock_factory.create_model.return_value = mock_model
         mock_factory.config = mocker.MagicMock()
 
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         ablation_config = {"epochs": [10, 20]}
@@ -1003,7 +1003,7 @@ class TestCreateAblationStudy:
         mock_factory.create_model.return_value = mock_model
         mock_factory.config = mocker.MagicMock()
 
-        mocker.patch("screencropnet_yolov11.training.TensorBoardCallback")
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
         mocker.patch("time.time", return_value=1000.0)
 
         ablation_config = {"lr": [0.01]}
