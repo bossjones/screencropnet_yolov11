@@ -44,12 +44,17 @@ def pascal_row_to_yolo(
     labels collapse to :data:`TWEET_REGION_CLASS_ID` so any source taxonomy maps
     onto the single-class target.
     """
-    xmin = float(row["xmin"])
-    ymin = float(row["ymin"])
-    xmax = float(row["xmax"])
-    ymax = float(row["ymax"])
-    width = float(row["width"])
-    height = float(row["height"])
+    try:
+        xmin = float(row["xmin"])
+        ymin = float(row["ymin"])
+        xmax = float(row["xmax"])
+        ymax = float(row["ymax"])
+        width = float(row["width"])
+        height = float(row["height"])
+    except KeyError as e:
+        raise ValueError(f"Missing required column in CSV row: {e}") from e
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"Invalid numeric value in CSV row: {e}") from e
 
     if width <= 0 or height <= 0:
         raise ValueError(f"Invalid image dimensions in bbox row: {width}x{height}")
@@ -87,6 +92,8 @@ def convert_csv(
             row = dict(raw)
             if "label" not in row and "class" in row:
                 row["label"] = row["class"]
+            if "filename" not in row:
+                raise ValueError("CSV row is missing the required 'filename' column.")
             class_id, x_c, y_c, w, h = pascal_row_to_yolo(row, resolved_map)
             stem = Path(str(row["filename"])).stem
             lines_by_image[stem].append(f"{class_id} {x_c:.6f} {y_c:.6f} {w:.6f} {h:.6f}")

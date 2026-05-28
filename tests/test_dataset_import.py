@@ -54,6 +54,14 @@ def test_pascal_row_to_yolo_validates_bounds() -> None:
         pascal_row_to_yolo(row, class_map={"twitter": 0})
 
 
+def test_pascal_row_to_yolo_missing_column_raises_valueerror() -> None:
+    """A row missing a required column yields a descriptive ValueError, not KeyError."""
+    row = {"xmin": 10, "ymin": 10, "xmax": 50, "ymax": 50, "label": "twitter"}  # no width/height
+
+    with pytest.raises(ValueError, match="[Cc]olumn"):
+        pascal_row_to_yolo(row, class_map={"twitter": 0})
+
+
 def _write_csv(csv_path: Path, rows: list[dict[str, object]]) -> None:
     fieldnames = ["filename", "width", "height", "label", "xmin", "ymin", "xmax", "ymax"]
     with csv_path.open("w", newline="") as f:
@@ -120,6 +128,15 @@ def test_convert_csv_writes_one_txt_per_image(tmp_path: Path) -> None:
     a_lines = (out / "labels" / "a.txt").read_text().strip().splitlines()
     assert len(a_lines) == 2
     assert all(line.split()[0] == "0" for line in a_lines)
+
+
+def test_convert_csv_missing_filename_raises_valueerror(tmp_path: Path) -> None:
+    """A CSV lacking the filename column yields a descriptive ValueError, not KeyError."""
+    csv_path = tmp_path / "no_filename.csv"
+    csv_path.write_text("width,height,label,xmin,ymin,xmax,ymax\n100,100,twitter,10,10,50,50\n")
+
+    with pytest.raises(ValueError, match="filename"):
+        convert_csv(csv_path, tmp_path / "out", class_map={"twitter": 0})
 
 
 def test_prepare_twitter_dataset_creates_train_val_split_and_data_yaml(tmp_path: Path) -> None:
