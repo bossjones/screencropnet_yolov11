@@ -173,3 +173,48 @@ def test_prepare_twitter_dataset_creates_train_val_split_and_data_yaml(tmp_path:
     data = yaml.safe_load((out / "data.yaml").read_text())
     assert data["nc"] == 1
     assert data["names"] == ["tweet_region"]
+
+
+def test_convert_csv_accepts_img_path_column(tmp_path: Path) -> None:
+    """The real Pascal-VOC export uses ``img_path`` (with a dir prefix) instead of ``filename``."""
+    csv_path = tmp_path / "labels_pascal_temp.csv"
+    csv_path.write_text(
+        "img_path,xmin,ymin,xmax,ymax,width,height,label\n"
+        "train_images/00000_twitter.PNG,30,391,1161,752,1179,2556,twitter\n"
+    )
+
+    out = tmp_path / "out"
+    convert_csv(csv_path, out, class_map={"twitter": 0})
+
+    # The directory prefix and extension are stripped to form the label stem.
+    label = out / "labels" / "00000_twitter.txt"
+    assert label.exists()
+    assert label.read_text().split()[0] == "0"
+
+
+def test_prepare_twitter_dataset_drops_unlabeled_images(tmp_path: Path) -> None:
+    """Images absent from the CSV are skipped so DatasetValidator does not reject the tree.
+
+    Uses uppercase ``.PNG`` to match the real export and guard the case-insensitive
+    image discovery in DatasetSplitter.
+    """
+    images_dir = tmp_path / "images"
+    images_dir.mkdir()
+    for i in range(5):
+        cv2.imwrite(str(images_dir / f"img{i}.PNG"), np.zeros((10, 10, 3), dtype=np.uint8))
+
+    # Only the first three images are annotated; img3/img4 have no CSV row.
+    csv_path = tmp_path / "annotations.csv"
+    csv_path.write_text("img_path,xmin,ymin,xmax,ymax,width,height,label\n")
+    with csv_path.open("a") as f:
+        for i in range(3):
+            f.write(f"img{i}.PNG,1,1,8,8,10,10,twitter\n")
+
+    out = tmp_path / "dataset"
+    prepare_twitter_dataset(images_dir, csv_path, out, val_ratio=0.0, seed=42)
+
+    staged_images = sorted(p.stem for p in (out / "train" / "images").glob("*.PNG"))
+    staged_labels = sorted(p.stem for p in (out / "train" / "labels").glob("*.txt"))
+    assert staged_images == ["img0", "img1", "img2"]
+    # Every staged image has a matching label — no orphans for the validator to reject.
+    assert staged_labels == staged_images

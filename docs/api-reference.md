@@ -31,9 +31,14 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
 "tweet_region"`, `DEFAULT_CLASS_MAP`.
 
 - `pascal_row_to_yolo(row, class_map) -> tuple[int, float, float, float, float]`
-- `convert_csv(csv_path, output_dir, class_map=None) -> Path`
+- `convert_csv(csv_path, output_dir, class_map=None) -> Path` — writes one YOLO
+  `.txt` per image under `<output_dir>/labels/` and returns that dir. Accepts
+  the image column as `img_path` or `filename`, and the class column as `label`
+  or `class`.
 - `prepare_twitter_dataset(images_dir, csv_path, output_dir, *, val_ratio=0.2,
-  seed=42, class_map=None) -> Path`
+  seed=42, class_map=None) -> Path` — full pipeline (convert + train/val split +
+  `data.yaml`). Stages only images that have a CSV annotation; images with no
+  label are skipped so the dataset validates cleanly.
 
 ## `model`
 
