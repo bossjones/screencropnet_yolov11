@@ -161,9 +161,13 @@ def prepare_twitter_dataset(
 
 
 def _iter_images(directory: Path) -> list[Path]:
-    """Collect supported image files directly under ``directory``."""
-    images: list[Path] = []
+    """Collect supported image files directly under ``directory`` (deduped, sorted).
+
+    Case-insensitive globbing on some platforms matches both the lowercase and
+    uppercase patterns for the same file, so dedupe; sort for deterministic output.
+    """
+    images: set[Path] = set()
     for ext in DatasetValidator.SUPPORTED_IMAGE_FORMATS:
-        images.extend(directory.glob(f"*{ext}"))
-        images.extend(directory.glob(f"*{ext.upper()}"))
-    return images
+        images.update(directory.glob(f"*{ext}"))
+        images.update(directory.glob(f"*{ext.upper()}"))
+    return sorted(images)

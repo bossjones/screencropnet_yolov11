@@ -314,6 +314,9 @@ class DatasetSplitter:
         for ext in DatasetValidator.SUPPORTED_IMAGE_FORMATS:
             images.extend(self.source_path.glob(f"**/*{ext}"))
             images.extend(self.source_path.glob(f"**/*{ext.upper()}"))
+        # Dedupe (case-insensitive globbing on some platforms matches both
+        # patterns, risking train/val leakage) and sort for a reproducible shuffle.
+        images = sorted(set(images))
 
         # Shuffle images
         random.shuffle(images)
