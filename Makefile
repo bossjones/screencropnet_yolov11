@@ -6,6 +6,8 @@
 
 .PHONY: default install lint test check open-coverage upgrade build clean agent-rules help monkeytype-create monkeytype-apply autotype
 
+ML_BACKEND_DIR := tools/labeling/ml_backend
+
 default: install lint test ## Run install, lint, and test
 # default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -42,6 +44,20 @@ upgrade: ## Upgrade all dependencies to latest versions
 build: ## Build the package distribution
 	@echo "🚀 Building package distribution"
 	@uv build
+
+.PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
+
+ml-backend-build: ## Build the Label Studio ML-backend Docker image
+	@$(MAKE) -C $(ML_BACKEND_DIR) build
+
+ml-backend-up: ## Start the ML backend in the foreground
+	@$(MAKE) -C $(ML_BACKEND_DIR) up
+
+ml-backend-up-d: ## Start the ML backend detached (daemonized)
+	@$(MAKE) -C $(ML_BACKEND_DIR) up-d
+
+ml-backend-down: ## Stop and remove the ML-backend container
+	@$(MAKE) -C $(ML_BACKEND_DIR) down
 
 # Disabled: agent-rules auto-generates CLAUDE.md/AGENTS.md from .cursor/rules,
 # clobbering hand-edited content. Re-enable (and restore `agent-rules` in

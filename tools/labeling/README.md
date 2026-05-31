@@ -48,6 +48,25 @@ The backend reads the checkpoint from
 with `CHECKPOINT_PATH`. Device is auto-selected (cuda > mps > cpu); override with
 `DEVICE`.
 
+### Or run it in Docker
+
+A `docker-compose.yml` lives next to the `Dockerfile`. It maps port 9090 and
+mounts repo-root `scratch/checkpoints/` read-only into the container, so stage
+the checkpoint (step 0) first. From the repo root:
+
+```bash
+make ml-backend-build   # build the image
+make ml-backend-up-d    # start detached (daemonized)
+make ml-backend-down    # stop and remove
+make ml-backend-up      # or run in the foreground
+```
+
+From inside `tools/labeling/ml_backend/` the same targets are `build`, `up-d`,
+`down`, and `up`. The container forces `DEVICE=cpu` (the `python:3.11-slim` base
+has no CUDA/MPS); override via the `DEVICE` env var. `CHECKPOINT_PATH` is already
+set to the mounted checkpoint. Confirm it's up with
+`curl -s http://localhost:9090/health`.
+
 ## 3. Launch Label Studio (terminal 2)
 
 ```bash
