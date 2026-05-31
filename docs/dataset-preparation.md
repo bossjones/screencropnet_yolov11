@@ -99,13 +99,51 @@ from screencropnet_yolo.dataset_import import prepare_twitter_dataset
 data_yaml = prepare_twitter_dataset(
     images_dir="./raw/train_images",
     csv_path="./raw/labels_pascal_temp.csv",
-    output_dir="./datasets/twitter",
+    # Write straight to the config's default dataset.path so a later
+    # `train.py -c config.yaml` (no -d) finds it automatically.
+    output_dir="./datasets/twitter_screenshots_localization_dataset",
     val_ratio=0.2, seed=42,
 )
 ```
 
+### Expected CSV columns
+
+One row per bounding box, pixel-space coordinates:
+
+```text
+img_path,xmin,ymin,xmax,ymax,width,height,label
+train_images/00000_twitter.PNG,30,391,1161,752,1179,2556,twitter
+```
+
+- The image column may be named `img_path` **or** `filename`; any directory
+  prefix and extension are stripped to match the image file by stem
+  (`train_images/00000_twitter.PNG` → label `00000_twitter.txt`).
+- The class column may be named `label` **or** `class`. Every value collapses to
+  the single `tweet_region` class (id `0`), so any source taxonomy maps onto the
+  single-class target.
+- `width`/`height` are the source image dimensions and are required to normalize
+  the box.
+
+### What the conversion does
+
+- **Drops unlabeled images.** Only images that have at least one CSV row are
+  staged; images with no annotation are skipped (and the count is logged) so the
+  validator does not later reject the dataset for a missing label.
+- **Splits and emits `data.yaml`.** Images are split with `DatasetSplitter`
+  (`test_ratio=0`) into `train/` and `val/`, and a `data.yaml` pinned to
+  `nc: 1, names: [tweet_region]` is written. Image discovery is
+  case-insensitive, so uppercase extensions like `.PNG`/`.JPG` are handled.
+
 To convert just the labels (no split), use `convert_csv(csv_path, output_dir)`,
-which writes YOLO `.txt` files under `labels/`.
+which writes YOLO `.txt` files under `<output_dir>/labels/` and returns that
+directory.
+
+Then validate and train against the generated tree:
+
+```bash
+# If output_dir matches dataset.path in config.yaml, no -d is needed:
+uv run python -m screencropnet_yolo.train -c config/config.yaml --validate-only
+```
 
 ## Annotate from scratch (Label Studio)
 

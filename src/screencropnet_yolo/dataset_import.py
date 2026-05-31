@@ -92,6 +92,8 @@ def convert_csv(
             row = dict(raw)
             if "label" not in row and "class" in row:
                 row["label"] = row["class"]
+            if "filename" not in row and "img_path" in row:
+                row["filename"] = row["img_path"]
             if "filename" not in row:
                 raise ValueError("CSV row is missing the required 'filename' column.")
             class_id, x_c, y_c, w, h = pascal_row_to_yolo(row, resolved_map)
@@ -127,10 +129,20 @@ def prepare_twitter_dataset(
         shutil.rmtree(staging)
     staging.mkdir(parents=True)
 
-    for image_path in _iter_images(images_dir):
-        shutil.copy2(image_path, staging / image_path.name)
+    labels_dir = convert_csv(csv_path, staging, class_map=class_map)
 
-    convert_csv(csv_path, staging, class_map=class_map)
+    # Stage only images that the CSV annotated; an image without a label file would
+    # otherwise fail DatasetValidator (which rejects any image missing an annotation).
+    staged = skipped = 0
+    for image_path in _iter_images(images_dir):
+        if not (labels_dir / f"{image_path.stem}.txt").exists():
+            skipped += 1
+            continue
+        shutil.copy2(image_path, staging / image_path.name)
+        staged += 1
+
+    if skipped:
+        logger.info(f"Skipped {skipped} image(s) with no annotation; staged {staged}.")
 
     splitter = DatasetSplitter(
         source_path=str(staging),
@@ -149,9 +161,13 @@ def prepare_twitter_dataset(
 
 
 def _iter_images(directory: Path) -> list[Path]:
-    """Collect supported image files directly under ``directory``."""
-    images: list[Path] = []
+    """Collect supported image files directly under ``directory`` (deduped, sorted).
+
+    Case-insensitive globbing on some platforms matches both the lowercase and
+    uppercase patterns for the same file, so dedupe; sort for deterministic output.
+    """
+    images: set[Path] = set()
     for ext in DatasetValidator.SUPPORTED_IMAGE_FORMATS:
-        images.extend(directory.glob(f"*{ext}"))
-        images.extend(directory.glob(f"*{ext.upper()}"))
-    return images
+        images.update(directory.glob(f"*{ext}"))
+        images.update(directory.glob(f"*{ext.upper()}"))
+    return sorted(images)
