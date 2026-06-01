@@ -62,10 +62,15 @@ make ml-backend-up      # or run in the foreground
 ```
 
 From inside `tools/labeling/ml_backend/` the same targets are `build`, `up-d`,
-`down`, and `up`. The container forces `DEVICE=cpu` (the `python:3.11-slim` base
-has no CUDA/MPS); override via the `DEVICE` env var. `CHECKPOINT_PATH` is already
-set to the mounted checkpoint. Confirm it's up with
-`curl -s http://localhost:9090/health`.
+`down`, and `up`. The container runs CPU-only and `DEVICE` defaults to `cpu`.
+On macOS this is a hard limit, not a default you can override away: Docker Desktop
+runs the container in a Linux VM with no Metal (MPS) passthrough and no NVIDIA
+support, so torch never sees a GPU here. For Apple-GPU (MPS) acceleration, run the
+backend natively instead (step 2 above / `make ml-backend`), where the device is
+auto-selected. Overriding `DEVICE=cuda` only reaches a real GPU when the container
+runs on a Linux host with an NVIDIA GPU (and a CUDA-enabled torch build), so it is
+not enabled by default. `CHECKPOINT_PATH` is already set to the mounted checkpoint.
+Confirm it's up with `curl -s http://localhost:9090/health`.
 
 ## 3. Launch Label Studio (terminal 2)
 

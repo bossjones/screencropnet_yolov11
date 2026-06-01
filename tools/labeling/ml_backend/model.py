@@ -12,7 +12,9 @@ Run (from this directory)::
 Environment:
     CHECKPOINT_PATH  Path to the .pth checkpoint
                      (default: <repo>/scratch/checkpoints/screencropnet_efficientnet_b0_378.pth)
-    DEVICE           torch device (default: auto — cuda > mps > cpu)
+    DEVICE           torch device (default: auto — cuda > mps > cpu). GPU requires
+                     a native run (mps on Apple Silicon) or a Linux+NVIDIA host;
+                     Docker-on-macOS is CPU-only (no Metal/CUDA passthrough).
     MODEL_INPUT_SIZE Square resize edge fed to the model (default: 224)
 """
 
