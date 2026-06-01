@@ -59,6 +59,28 @@ ml-backend-up-d: ## Start the ML backend detached (daemonized)
 ml-backend-down: ## Stop and remove the ML-backend container
 	@$(MAKE) -C $(ML_BACKEND_DIR) down
 
+.PHONY: label-studio label-studio-local ml-backend
+
+# Label Studio is installed as an isolated uv tool (`uv tool install
+# label-studio`): its pinned requests/pillow versions conflict with this
+# project's deps, so it cannot live in the project venv. `uvx` == `uv tool run`.
+label-studio: ## launch Label Studio annotation UI on http://localhost:8080
+	uvx label-studio
+
+label-studio-local: ## launch Label Studio serving the screenshots dir as local files
+	# LOCAL_FILES_* lets you import the on-disk screenshots without uploading them
+	LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \
+	LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=$(CURDIR)/scratch/datasets/twitter_screenshots_raw \
+	uvx label-studio
+
+# Local (non-Docker) ML backend launch, mirroring README step 2. Runs as an
+# isolated uv tool; reads the checkpoint from scratch/checkpoints/ (override with
+# CHECKPOINT_PATH). The backslash-joined recipe is one shell, so cd persists.
+ml-backend: ## launch the ML backend locally via uvx on http://localhost:9090
+	cd $(ML_BACKEND_DIR) && \
+	uvx --from label-studio-ml --with torch --with timm --with albumentations \
+	    --with opencv-python-headless label-studio-ml start . --port 9090
+
 # Disabled: agent-rules auto-generates CLAUDE.md/AGENTS.md from .cursor/rules,
 # clobbering hand-edited content. Re-enable (and restore `agent-rules` in
 # `default` above) once we decide how to merge generated + hand-written rules.
