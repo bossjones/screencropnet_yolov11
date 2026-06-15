@@ -6,8 +6,11 @@ needs to nudge.
 
 Run (from this directory)::
 
-    uvx --from label-studio-ml --with torch --with timm --with albumentations \
-        --with opencv-python-headless label-studio-ml start . --port 9090
+    uvx --python 3.11 \
+        --from "git+https://github.com/HumanSignal/label-studio-ml-backend.git" \
+        --with torch --with timm --with albumentations \
+        --with opencv-python-headless --with redis --with rq \
+        label-studio-ml start . --port 9090
 
 Environment:
     CHECKPOINT_PATH  Path to the .pth checkpoint

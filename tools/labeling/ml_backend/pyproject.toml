@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Label Studio ML backend pre-predicting tweet_region boxes with EfficientNet-B0"
 requires-python = ">=3.11"
 dependencies = [
-    "label-studio-ml>=1.0.9",
+    # PyPI label-studio-ml is frozen at 1.0.9 (old API, no ModelResponse); the
+    # modern API this backend targets only ships from the GitHub repo.
+    "label-studio-ml",
+    "rq",
     "torch>=2.0",
     "timm>=0.9",
     "albumentations>=1.4",
@@ -15,3 +18,6 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+label-studio-ml = { git = "https://github.com/HumanSignal/label-studio-ml-backend.git" }

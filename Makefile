@@ -84,8 +84,11 @@ label-studio-local: ## launch Label Studio serving the screenshots dir as local 
 # CHECKPOINT_PATH). The backslash-joined recipe is one shell, so cd persists.
 ml-backend: ## launch the ML backend locally via uvx on http://localhost:9090
 	cd $(ML_BACKEND_DIR) && \
-	uvx --from label-studio-ml --with torch --with timm --with albumentations \
-	    --with opencv-python-headless label-studio-ml start . --port 9090
+	uvx --python 3.11 \
+	    --from "git+https://github.com/HumanSignal/label-studio-ml-backend.git" \
+	    --with torch --with timm --with albumentations \
+	    --with opencv-python-headless --with redis --with rq \
+	    label-studio-ml start . --port 9090
 
 .PHONY: labeling-stage labeling-tasks labeling-export dataset-validate train
 

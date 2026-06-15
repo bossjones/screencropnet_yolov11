@@ -110,8 +110,10 @@ Or directly from the backend directory:
 
 ```bash
 cd tools/labeling/ml_backend
-uvx --from label-studio-ml --with torch --with timm \
-    --with albumentations --with opencv-python-headless \
+uvx --python 3.11 \
+    --from "git+https://github.com/HumanSignal/label-studio-ml-backend.git" \
+    --with torch --with timm --with albumentations \
+    --with opencv-python-headless --with redis --with rq \
     label-studio-ml start . --port 9090
 ```
 
