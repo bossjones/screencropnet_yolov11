@@ -8,6 +8,12 @@
 
 ML_BACKEND_DIR := tools/labeling/ml_backend
 
+# Labeling-flow paths (override on the command line, e.g. `make labeling-export LS_EXPORT=foo.zip`).
+PYTORCH_LAB ?= /Users/bossjones/dev/bossjones/pytorch-lab
+DATASET_DIR ?= datasets/twitter_screenshots_localization_dataset
+LS_EXPORT ?= ./ls_export.zip
+RAW_DIR := scratch/datasets/twitter_screenshots_raw
+
 default: install lint test ## Run install, lint, and test
 # default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -80,6 +86,38 @@ ml-backend: ## launch the ML backend locally via uvx on http://localhost:9090
 	cd $(ML_BACKEND_DIR) && \
 	uvx --from label-studio-ml --with torch --with timm --with albumentations \
 	    --with opencv-python-headless label-studio-ml start . --port 9090
+
+.PHONY: labeling-stage labeling-tasks labeling-export dataset-validate train
+
+# Labeling pipeline targets, mirroring docs/label-studio-annotation-guide.md. The
+# raw commands still live in that guide; these are the one-shot equivalents.
+labeling-stage: ## stage raw images + checkpoint from PYTORCH_LAB into scratch/ (guide step 1)
+	mkdir -p $(RAW_DIR) scratch/checkpoints scratch/labeling
+	cp "$(PYTORCH_LAB)/scratch/datasets/twitter_screenshots_localization_dataset/labels_pascal_temp.csv" \
+	   $(RAW_DIR)/labels_pascal_temp.csv
+	cp -R "$(PYTORCH_LAB)/scratch/datasets/twitter_screenshots_localization_dataset/train_images" \
+	   $(RAW_DIR)/train_images
+	cp "$(PYTORCH_LAB)/screencropnet/models/ScreenCropNetV1_378_epochs.pth" \
+	   scratch/checkpoints/screencropnet_efficientnet_b0_378.pth
+
+labeling-tasks: ## build Label Studio tasks.json with boxes pre-drawn (guide step 2)
+	uv run scripts/pascal_csv_to_ls_tasks.py \
+	    --csv $(RAW_DIR)/labels_pascal_temp.csv \
+	    --images-root $(RAW_DIR)/train_images \
+	    --images-url-prefix "/data/local-files/?d=train_images" \
+	    --out scratch/labeling/tasks.json
+
+labeling-export: ## convert a Label Studio export (LS_EXPORT) into DATASET_DIR (guide step 8)
+	uv run scripts/ls_yolo_export_to_dataset.py \
+	    --export $(LS_EXPORT) \
+	    --out $(DATASET_DIR)/ \
+	    --val-ratio 0.2 --test-ratio 0.1 --seed 42
+
+dataset-validate: ## validate the canonical dataset without training (guide step 8)
+	uv run python -m screencropnet_yolo.train --validate-only
+
+train: ## train YOLO26 on the canonical dataset — runs a real training session (guide step 8)
+	uv run python -m screencropnet_yolo.train
 
 # Disabled: agent-rules auto-generates CLAUDE.md/AGENTS.md from .cursor/rules,
 # clobbering hand-edited content. Re-enable (and restore `agent-rules` in

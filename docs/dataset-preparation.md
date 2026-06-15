@@ -7,7 +7,7 @@ Studio.
 
 ## Expected layout
 
-```
+```text
 dataset/
 ├── data.yaml          # nc: 1, names: [tweet_region]
 ├── train/
@@ -31,8 +31,10 @@ project is single-class, so `class_id` is always `0`.
 imbalance without training:
 
 ```bash
-uv run python -m screencropnet_yolo.train -d ./datasets/twitter --validate-only
+uv run python -m screencropnet_yolo.train --validate-only   # or: make dataset-validate
 ```
+
+Add `-d <path>` to validate a dataset other than the packaged config default.
 
 Programmatically:
 
@@ -74,7 +76,7 @@ variable rather than committing it:
 
 ```bash
 export ROBOFLOW_API_KEY=...   # never hardcode in config.yaml
-uv run python -m screencropnet_yolo.train -c config/config.yaml
+uv run python -m screencropnet_yolo.train
 ```
 
 Or use the loader directly:
@@ -142,7 +144,7 @@ Then validate and train against the generated tree:
 
 ```bash
 # If output_dir matches dataset.path in config.yaml, no -d is needed:
-uv run python -m screencropnet_yolo.train -c config/config.yaml --validate-only
+uv run python -m screencropnet_yolo.train --validate-only
 ```
 
 ## Annotate from scratch (Label Studio)
@@ -164,12 +166,13 @@ Two helper scripts (PEP 723, run with `uv run`) support this flow:
 ```bash
 uv run scripts/ls_yolo_export_to_dataset.py \
   --export ./ls_export.zip \
-  --out ./datasets/twitter \
-  --val-ratio 0.2 --seed 42
+  --out ./datasets/twitter_screenshots_localization_dataset \
+  --val-ratio 0.2 --test-ratio 0.1 --seed 42   # or: make labeling-export
 ```
 
-Then point the trainer at the generated `data.yaml`:
+This writes back into the canonical dataset folder (the `config.yaml` default),
+so the trainer needs no flags:
 
 ```bash
-uv run python -m screencropnet_yolo.train -d ./datasets/twitter
+uv run python -m screencropnet_yolo.train   # or: make train
 ```

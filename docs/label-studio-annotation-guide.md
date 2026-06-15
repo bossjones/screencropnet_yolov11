@@ -1,8 +1,16 @@
 # Label Studio annotation guide
 
 Annotate Twitter screenshots with `tweet_region` bounding boxes and export a
-YOLO26-ready dataset. By the end you will have a `data.yaml` + train/val split
-ready to hand to the trainer.
+YOLO26-ready dataset. By the end you will have a `data.yaml` + train/val/test
+split ready to hand to the trainer.
+
+> **You may not need this.** A ready-to-train dataset already exists at
+> `datasets/twitter_screenshots_localization_dataset/` (272 train / 68 val / 1
+> test, all `tweet_region`), and it is the default `dataset.path` in
+> `src/screencropnet_yolo/config/config.yaml`. To just train, run
+> `uv run python -m screencropnet_yolo.train` (or `make train`) — no annotation
+> needed. Follow this guide only to **re-annotate** those images or **add new
+> ones**; the export step writes back into that same canonical folder.
 
 ## How it works
 
@@ -20,7 +28,7 @@ annotated tasks  ←  EfficientNet-B0 ML backend (port 9090)
      ↓ Export → YOLO with images
 ls_export.zip
      ↓ scripts/ls_yolo_export_to_dataset.py
-YOLO26 dataset  (data.yaml + train/ + val/)
+datasets/twitter_screenshots_localization_dataset/  (data.yaml + train/ val/ test/)
      ↓
 uv run python -m screencropnet_yolo.train
 ```
@@ -54,6 +62,9 @@ cp "$SRC/screencropnet/models/ScreenCropNetV1_378_epochs.pth" \
    scratch/checkpoints/screencropnet_efficientnet_b0_378.pth
 ```
 
+Equivalent: `make labeling-stage` (override the source with
+`make labeling-stage PYTORCH_LAB=/path/to/pytorch-lab`).
+
 Never edit files under `scratch/datasets/twitter_screenshots_raw/` — treat them
 as read-only originals.
 
@@ -71,6 +82,8 @@ uv run scripts/pascal_csv_to_ls_tasks.py \
   --images-url-prefix "/data/local-files/?d=train_images" \
   --out scratch/labeling/tasks.json
 ```
+
+Equivalent: `make labeling-tasks`.
 
 `scripts/pascal_csv_to_ls_tasks.py` is a PEP 723 script (stdlib-only, no install
 needed). It writes a JSON array of Label Studio tasks, each with a
@@ -252,36 +265,51 @@ for clarity:
 mv ~/Downloads/project-1-at-*.zip ./ls_export.zip
 ```
 
-### Convert to YOLO26 dataset layout
+### Convert to the canonical YOLO26 dataset
+
+This writes back into the canonical dataset folder (the `config.yaml` default).
+`--test-ratio` reproduces the train/val/test layout the trainer expects.
+
+> **Heads-up:** the converter clears the `train/`, `val/`, and `test/` subdirs of
+> `--out` before copying, so this **replaces** the existing canonical dataset.
 
 ```bash
 uv run scripts/ls_yolo_export_to_dataset.py \
   --export ./ls_export.zip \
-  --out scratch/datasets/twitter_screenshots/ \
+  --out datasets/twitter_screenshots_localization_dataset/ \
   --val-ratio 0.2 \
+  --test-ratio 0.1 \
   --seed 42
 ```
+
+Equivalent: `make labeling-export LS_EXPORT=./ls_export.zip`.
 
 Output:
 
 ```text
-scratch/datasets/twitter_screenshots/
+datasets/twitter_screenshots_localization_dataset/
 ├── data.yaml          # nc: 1, names: [tweet_region]
 ├── train/
-│   ├── images/        # 80% of annotated pairs
+│   ├── images/        # 70% of annotated pairs
 │   └── labels/        # YOLO format: "0 x_c y_c w h" (normalized)
-└── val/
-    ├── images/        # 20% of annotated pairs
+├── val/
+│   ├── images/        # 20% of annotated pairs
+│   └── labels/
+└── test/
+    ├── images/        # 10% of annotated pairs
     └── labels/
 ```
 
 ### Validate before training
 
+The packaged config already points `dataset.path` at this folder, so no flags
+are needed:
+
 ```bash
-uv run python -m screencropnet_yolo.train \
-  -d scratch/datasets/twitter_screenshots \
-  --validate-only
+uv run python -m screencropnet_yolo.train --validate-only
 ```
+
+Equivalent: `make dataset-validate`.
 
 This runs `DatasetValidator` and logs stats without starting a training run.
 Fix any reported errors before proceeding.
@@ -289,16 +317,14 @@ Fix any reported errors before proceeding.
 ### Train
 
 ```bash
-uv run python -m screencropnet_yolo.train \
-  -d scratch/datasets/twitter_screenshots
+uv run python -m screencropnet_yolo.train
 ```
 
-Or point the config at the new dataset:
+Equivalent: `make train`. Add `-d <path>` only to train on a different dataset:
 
 ```bash
 uv run python -m screencropnet_yolo.train \
-  -c src/screencropnet_yolo/config/config.yaml \
-  -d scratch/datasets/twitter_screenshots
+  -d datasets/twitter_screenshots_localization_dataset
 ```
 
 ---

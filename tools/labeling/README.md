@@ -101,23 +101,33 @@ with no seed annotation get an ML-backend prediction on open.
 
 In Label Studio: **Export → YOLO with images** (downloads a ZIP). Then:
 
+This writes back into the canonical dataset folder (the `config.yaml` default),
+clearing its `train/`/`val/`/`test/` subdirs first — it **replaces** the
+existing dataset:
+
 ```bash
 uv run scripts/ls_yolo_export_to_dataset.py \
   --export ./ls_export.zip \
-  --out scratch/datasets/twitter_screenshots/ \
-  --val-ratio 0.2 --seed 42
+  --out datasets/twitter_screenshots_localization_dataset/ \
+  --val-ratio 0.2 --test-ratio 0.1 --seed 42
 ```
 
 Produces:
 
-```
-scratch/datasets/twitter_screenshots/
+```text
+datasets/twitter_screenshots_localization_dataset/
 ├── data.yaml          # nc: 1, names: [tweet_region]
 ├── train/images/  train/labels/
-└── val/images/    val/labels/
+├── val/images/    val/labels/
+└── test/images/   test/labels/
 ```
 
-Point the YOLO26 trainer at `scratch/datasets/twitter_screenshots/data.yaml`.
+This is the default `dataset.path` in the packaged config, so no flags are
+needed:
+
+```bash
+uv run python -m screencropnet_yolo.train   # or: make train
+```
 
 ## Troubleshooting
 

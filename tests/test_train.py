@@ -13,6 +13,7 @@ import yaml
 from pytest_mock import MockerFixture
 
 from screencropnet_yolo.train import (
+    DEFAULT_CONFIG_PATH,
     create_visualizations,
     evaluate_model,
     export_model,
@@ -888,10 +889,30 @@ class TestParseArgs:
 
         args = parse_args()
 
-        assert args.config == "config/config.yaml"
+        # The default config points at the packaged config, which must exist so
+        # `python -m screencropnet_yolo.train` works from any working directory.
+        assert Path(args.config).is_file()
+        assert args.config.endswith("config/config.yaml")
         assert args.data is None
         assert args.epochs is None
         assert args.validate_only is False
+
+    def test_default_config_is_packaged_file(self, mocker: MockerFixture) -> None:
+        """The default --config resolves to the packaged config on disk."""
+        mocker.patch("sys.argv", ["train.py"])
+
+        args = parse_args()
+
+        assert Path(args.config) == DEFAULT_CONFIG_PATH
+        assert DEFAULT_CONFIG_PATH.is_file()
+
+    def test_packaged_default_config_loads(self) -> None:
+        """The packaged default config loads into a usable config dict."""
+        config = load_config(str(DEFAULT_CONFIG_PATH))
+
+        assert "dataset" in config
+        assert "model" in config
+        assert "training" in config
 
     def test_config_path_argument(self, mocker: MockerFixture) -> None:
         """Config path can be specified."""

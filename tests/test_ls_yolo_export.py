@@ -43,6 +43,66 @@ def test_export_writes_data_yaml_single_class(tmp_path: Path) -> None:
     assert len(list((out_dir / "val" / "labels").glob("*.txt"))) == 2
 
 
+def test_export_three_way_split_writes_test(tmp_path: Path) -> None:
+    export = tmp_path / "ls_export.zip"
+    _make_export_zip(export, n=10)
+    out_dir = tmp_path / "dataset"
+
+    summary = build_dataset(export, out_dir, val_ratio=0.2, test_ratio=0.1, seed=42)
+
+    assert summary == {
+        "train": 7,
+        "val": 2,
+        "test": 1,
+        "total": 10,
+        "data_yaml": str(out_dir / "data.yaml"),
+    }
+
+    data = yaml.safe_load((out_dir / "data.yaml").read_text())
+    assert data["test"] == "test/images"
+
+    assert len(list((out_dir / "test" / "images").glob("*.png"))) == 1
+    assert len(list((out_dir / "test" / "labels").glob("*.txt"))) == 1
+
+
+def test_export_omits_test_when_ratio_zero(tmp_path: Path) -> None:
+    export = tmp_path / "ls_export.zip"
+    _make_export_zip(export, n=10)
+    out_dir = tmp_path / "dataset"
+
+    build_dataset(export, out_dir, val_ratio=0.2, seed=42)
+
+    data = yaml.safe_load((out_dir / "data.yaml").read_text())
+    assert "test" not in data
+    assert not (out_dir / "test").exists()
+
+
+def test_export_ratios_summing_above_one_raise(tmp_path: Path) -> None:
+    export = tmp_path / "ls_export.zip"
+    _make_export_zip(export, n=10)
+
+    with pytest.raises(ValueError):
+        build_dataset(export, tmp_path / "out", val_ratio=0.7, test_ratio=0.4)
+
+
+def test_export_rerun_replaces_stale_files(tmp_path: Path) -> None:
+    """Re-running into a populated dir must not leave files from the prior run."""
+    out_dir = tmp_path / "dataset"
+
+    big = tmp_path / "big.zip"
+    _make_export_zip(big, n=10)
+    build_dataset(big, out_dir, val_ratio=0.2, seed=42)
+
+    small = tmp_path / "small.zip"
+    _make_export_zip(small, n=4)
+    summary = build_dataset(small, out_dir, val_ratio=0.25, seed=42)
+
+    assert summary["total"] == 4
+    train_imgs = list((out_dir / "train" / "images").glob("*.png"))
+    val_imgs = list((out_dir / "val" / "images").glob("*.png"))
+    assert len(train_imgs) + len(val_imgs) == 4
+
+
 def test_export_split_is_deterministic(tmp_path: Path) -> None:
     export = tmp_path / "ls_export.zip"
     _make_export_zip(export, n=10)
