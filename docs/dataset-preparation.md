@@ -151,7 +151,8 @@ For new screenshots with no labels, use the Label Studio workflow. An
 EfficientNet-B0 ML backend pre-predicts the tweet box so annotators only confirm
 or nudge it, then you export straight to the YOLO 26 layout.
 
-Full operator runbook: [tools/labeling/README.md](../tools/labeling/README.md).
+Full getting-started tutorial: [docs/label-studio-annotation-guide.md](label-studio-annotation-guide.md).
+Quick command reference: [tools/labeling/README.md](../tools/labeling/README.md).
 
 Two helper scripts (PEP 723, run with `uv run`) support this flow:
 
