@@ -71,7 +71,9 @@ class ScreenNetClassifier:
 
         if self._model is None or self._transforms is None:
             raise RuntimeError("load_model() must be called before infer()")
-        if image.mode == "RGBA":
+        # EfficientNet transforms expect 3-channel RGB; screenshots can be RGBA,
+        # palette (P), grayscale (L/LA), or CMYK, so normalize any non-RGB mode.
+        if image.mode != "RGB":
             image = image.convert("RGB")
 
         start = perf_counter()
