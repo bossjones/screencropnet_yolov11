@@ -14,6 +14,10 @@ DATASET_DIR ?= datasets/twitter_screenshots_localization_dataset
 LS_EXPORT ?= ./ls_export.zip
 RAW_DIR := scratch/datasets/twitter_screenshots_raw
 
+# Append-only log for label-studio-local (gitignored via *.log). Query it later
+# when something looks wrong; `make label-studio-log-truncate` empties it.
+LABEL_STUDIO_LOG := $(CURDIR)/label-studio.log
+
 default: install lint test ## Run install, lint, and test
 # default: agent-rules install lint test ## Run agent-rules, install, lint, and test
 
@@ -65,7 +69,7 @@ ml-backend-up-d: ## Start the ML backend detached (daemonized)
 ml-backend-down: ## Stop and remove the ML-backend container
 	@$(MAKE) -C $(ML_BACKEND_DIR) down
 
-.PHONY: label-studio label-studio-local ml-backend
+.PHONY: label-studio label-studio-local label-studio-log-truncate ml-backend
 
 # Label Studio is installed as an isolated uv tool (`uv tool install
 # label-studio`): its pinned requests/pillow versions conflict with this
@@ -75,11 +79,18 @@ ml-backend-down: ## Stop and remove the ML-backend container
 label-studio: ## launch Label Studio annotation UI on http://localhost:8080
 	uvx --python 3.12 label-studio
 
-label-studio-local: ## launch Label Studio serving the screenshots dir as local files
-	# LOCAL_FILES_* lets you import the on-disk screenshots without uploading them
+label-studio-local: ## launch Label Studio serving the screenshots dir as local files (tees to label-studio.log)
+	# LOCAL_FILES_* lets you import the on-disk screenshots without uploading them.
+	# `2>&1 | tee -a` shows output live while appending stdout+stderr to the log;
+	# `set -o pipefail` preserves label-studio's exit code past the tee pipe.
+	set -o pipefail; \
 	LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \
 	LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=$(CURDIR)/scratch/datasets/twitter_screenshots_raw \
-	uvx --python 3.12 label-studio
+	uvx --python 3.12 label-studio 2>&1 | tee -a $(LABEL_STUDIO_LOG)
+
+label-studio-log-truncate: ## empty label-studio.log
+	@: > $(LABEL_STUDIO_LOG)
+	@echo "✔︎ truncated $(LABEL_STUDIO_LOG)"
 
 # Local (non-Docker) ML backend launch, mirroring README step 2. Runs as an
 # isolated uv tool; reads the checkpoint from scratch/checkpoints/ (override with
