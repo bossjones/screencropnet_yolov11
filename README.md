@@ -101,10 +101,22 @@ for det in result.detections:
 See [docs/usage.md](docs/usage.md) for evaluation, batch/video inference, export,
 and more Python API examples.
 
+### Async classify pipeline
+
+The repo has two halves. The training pipeline above builds the YOLO 26
+tweet-region **detector**. The other half is an async **classify/ingest** service
+(FastAPI + RabbitMQ worker + Postgres + CLI) that triages a folder of screenshots
+as twitter / not-twitter and exports the twitter-positive originals into the raw
+dataset. To get it running end to end, follow
+[docs/quickstart.md](docs/quickstart.md); for the architecture, endpoints, and
+metrics, see [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md).
+
 ## Documentation
 
 | Doc | What's inside |
 |-----|---------------|
+| [docs/quickstart.md](docs/quickstart.md) | Get the async classify pipeline running end to end in ~10 minutes |
+| [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md) | Classify pipeline deep dive: architecture, endpoints, metrics, export semantics, config |
 | [docs/installation.md](docs/installation.md) | Installing `uv` and Python |
 | [docs/usage.md](docs/usage.md) | CLI reference, training/eval/inference/export workflows, Python API |
 | [docs/configuration.md](docs/configuration.md) | Complete `config.yaml` field reference |
