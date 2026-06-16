@@ -235,8 +235,8 @@ used it.
 
 ## Step 6 — Import tasks
 
-If you ran `make labeling-setup-project` in Step 5, tasks are already imported —
-this step is the manual equivalent.
+If you ran `make labeling-setup-project` in Step 5, tasks are already imported and
+a Local Storage is registered for you — this step is the manual equivalent.
 
 ### With pre-drawn boxes (recommended)
 
@@ -246,6 +246,17 @@ If you ran Step 2, import the generated file:
 
 Tasks appear in the project list. Each one has a gold prediction rectangle
 already drawn at the correct `tweet_region` boundary.
+
+The task images are referenced by `/data/local-files/?d=train_images/...` URLs,
+which only resolve once a Local Storage whose path is under the document root is
+registered. `make labeling-setup-project` registers that storage automatically
+and **does not sync it** — syncing would create a second, duplicate set of tasks
+from the directory and break the seed-prediction pairing. If you set this up
+manually, add the storage but do not click **Sync**:
+
+- **Settings → Cloud Storage → Add Local Storage**
+- Path: `scratch/datasets/twitter_screenshots_raw/train_images`
+- Save without syncing
 
 ### Without pre-existing labels (fresh images)
 
@@ -375,9 +386,14 @@ common issues:
 
 - **Backend unreachable / CORS error**: check `curl -s http://localhost:9090/health`.
   If Label Studio runs in Docker, use `http://host.docker.internal:9090`.
-- **Images don't load**: confirm `LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true`
-  and that the document root contains the `train_images/` directory referenced
-  by `--images-url-prefix`.
+- **Images don't load** (`/data/local-files/` errors in the server log):
+  - **`403`** → serving is disabled. Launch with `make label-studio-local` so
+    `LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true` and the document root are set.
+  - **`404`** → serving is on but no Local Storage is registered whose path is a
+    prefix of the requested file (or the file is missing). Re-run
+    `make labeling-setup-project` (it reuses the project, skips re-import, and
+    registers the storage), and confirm the document root contains the
+    `train_images/` directory referenced by `--images-url-prefix`.
 - **Port conflict**: change `--port` on the backend (default 9090) or Label
   Studio (default 8080) and update the ML model URL in project settings.
 - **Wrong-looking boxes / 500 on prediction**: the checkpoint must match

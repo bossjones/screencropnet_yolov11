@@ -100,6 +100,9 @@ def test_setup_project_creates_imports_and_connects(mocker: MockerFixture) -> No
         ml_title="ScreenCropNet ML Backend",
         is_interactive=True,
         connect_ml_backend=True,
+        connect_local_storage=False,
+        local_storage_path=None,
+        local_storage_title="Twitter screenshots (local)",
         reuse=True,
         force_import=False,
     )
@@ -133,6 +136,9 @@ def test_setup_project_reuses_existing_and_skips_import(mocker: MockerFixture) -
         ml_title="ScreenCropNet ML Backend",
         is_interactive=True,
         connect_ml_backend=True,
+        connect_local_storage=False,
+        local_storage_path=None,
+        local_storage_title="Twitter screenshots (local)",
         reuse=True,
         force_import=False,
     )
@@ -159,6 +165,9 @@ def test_setup_project_skips_duplicate_ml_backend(mocker: MockerFixture) -> None
         ml_title="ScreenCropNet ML Backend",
         is_interactive=True,
         connect_ml_backend=True,
+        connect_local_storage=False,
+        local_storage_path=None,
+        local_storage_title="Twitter screenshots (local)",
         reuse=True,
         force_import=False,
     )
@@ -182,6 +191,9 @@ def test_setup_project_can_skip_ml_backend(mocker: MockerFixture) -> None:
         ml_title="ScreenCropNet ML Backend",
         is_interactive=True,
         connect_ml_backend=False,
+        connect_local_storage=False,
+        local_storage_path=None,
+        local_storage_title="Twitter screenshots (local)",
         reuse=True,
         force_import=False,
     )
@@ -189,3 +201,93 @@ def test_setup_project_can_skip_ml_backend(mocker: MockerFixture) -> None:
     client.ml.create.assert_not_called()
     client.projects.import_tasks.assert_not_called()
     assert summary["ml_backend_id"] is None
+
+
+def test_setup_project_registers_local_storage_without_sync(mocker: MockerFixture) -> None:
+    client = mocker.MagicMock()
+    existing = mocker.MagicMock(id=3, title="screencropnet")
+    client.projects.list.return_value = [existing]
+    client.ml.list.return_value = []
+    client.import_storage.local.list.return_value = []
+    client.import_storage.local.create.return_value = mocker.MagicMock(id=42)
+
+    summary = setup_project(
+        client,
+        title="screencropnet",
+        label_config="<View/>",
+        tasks=[],
+        ml_backend_url="http://localhost:9090",
+        ml_title="ScreenCropNet ML Backend",
+        is_interactive=True,
+        connect_ml_backend=False,
+        connect_local_storage=True,
+        local_storage_path="/data/twitter_screenshots_raw/train_images",
+        local_storage_title="Twitter screenshots (local)",
+        reuse=True,
+        force_import=False,
+    )
+
+    client.import_storage.local.create.assert_called_once_with(
+        project=3,
+        path="/data/twitter_screenshots_raw/train_images",
+        title="Twitter screenshots (local)",
+        use_blob_urls=True,
+    )
+    # A sync would duplicate the imported seed tasks; registration alone suffices.
+    client.import_storage.local.sync.assert_not_called()
+    assert summary["local_storage_id"] == 42
+
+
+def test_setup_project_skips_duplicate_local_storage(mocker: MockerFixture) -> None:
+    client = mocker.MagicMock()
+    existing = mocker.MagicMock(id=3, title="screencropnet")
+    client.projects.list.return_value = [existing]
+    client.ml.list.return_value = []
+    path = "/data/twitter_screenshots_raw/train_images"
+    client.import_storage.local.list.return_value = [mocker.MagicMock(id=88, path=path)]
+
+    summary = setup_project(
+        client,
+        title="screencropnet",
+        label_config="<View/>",
+        tasks=[],
+        ml_backend_url="http://localhost:9090",
+        ml_title="ScreenCropNet ML Backend",
+        is_interactive=True,
+        connect_ml_backend=False,
+        connect_local_storage=True,
+        local_storage_path=path,
+        local_storage_title="Twitter screenshots (local)",
+        reuse=True,
+        force_import=False,
+    )
+
+    client.import_storage.local.create.assert_not_called()
+    assert summary["local_storage_id"] == 88
+
+
+def test_setup_project_can_skip_local_storage(mocker: MockerFixture) -> None:
+    client = mocker.MagicMock()
+    existing = mocker.MagicMock(id=3, title="screencropnet")
+    client.projects.list.return_value = [existing]
+    client.ml.list.return_value = []
+
+    summary = setup_project(
+        client,
+        title="screencropnet",
+        label_config="<View/>",
+        tasks=[],
+        ml_backend_url="http://localhost:9090",
+        ml_title="ScreenCropNet ML Backend",
+        is_interactive=True,
+        connect_ml_backend=False,
+        connect_local_storage=False,
+        local_storage_path="/data/twitter_screenshots_raw/train_images",
+        local_storage_title="Twitter screenshots (local)",
+        reuse=True,
+        force_import=False,
+    )
+
+    client.import_storage.local.list.assert_not_called()
+    client.import_storage.local.create.assert_not_called()
+    assert summary["local_storage_id"] is None

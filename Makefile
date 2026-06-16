@@ -113,10 +113,12 @@ labeling-tasks: ## build Label Studio tasks.json with boxes pre-drawn (guide ste
 	    --out scratch/labeling/tasks.json
 
 labeling-setup-project: ## create+configure the screencropnet LS project via SDK (needs LABEL_STUDIO_API_KEY)
+	# --local-files-document-root must match label-studio-local's LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT
 	uv run scripts/setup_ls_project.py \
 	    --title screencropnet \
 	    --tasks scratch/labeling/tasks.json \
-	    --ml-backend-url http://localhost:9090
+	    --ml-backend-url http://localhost:9090 \
+	    --local-files-document-root $(RAW_DIR)
 
 labeling-export: ## convert a Label Studio export (LS_EXPORT) into DATASET_DIR (guide step 8)
 	uv run scripts/ls_yolo_export_to_dataset.py \
