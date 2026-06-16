@@ -168,9 +168,43 @@ required and nothing is sent upstream.
 
 Open <http://localhost:8080> in your browser.
 
+To use the scripted setup in the next step, copy a token from **Account &
+Settings → Access Token** and export it:
+
+```bash
+export LABEL_STUDIO_API_KEY=<token from Account & Settings → Access Token>
+```
+
 ---
 
 ## Step 5 — Create and configure your project
+
+### Automated (recommended)
+
+With Label Studio running (Step 4), the ML backend running (Step 3), and
+`LABEL_STUDIO_API_KEY` exported, configure everything in one command:
+
+```bash
+make labeling-setup-project
+```
+
+This wraps `scripts/setup_ls_project.py`, which:
+
+- creates (or reuses) a project titled `screencropnet`,
+- applies the `tweet_region` labeling interface,
+- imports `scratch/labeling/tasks.json` (the pre-drawn boxes from Step 2), and
+- connects the ML backend at `http://localhost:9090`.
+
+It is safe to re-run: an existing `screencropnet` project is reused, tasks are
+not re-imported (pass `--force-import` to override), and the ML backend is not
+added twice. Useful flags: `--title`, `--ml-backend-url`, `--no-ml-backend`,
+`--no-reuse`, `--force-import`. This also performs Step 6, so skip Step 6 if you
+used it.
+
+> The script runs via `uv run` and pulls `label-studio-sdk` into an isolated
+> environment, so it is intentionally not a project dependency.
+
+### Manual (UI)
 
 1. Click **Create Project** and give it a name (e.g. "Twitter Screenshot Annotation").
 
@@ -200,6 +234,9 @@ Open <http://localhost:8080> in your browser.
 ---
 
 ## Step 6 — Import tasks
+
+If you ran `make labeling-setup-project` in Step 5, tasks are already imported —
+this step is the manual equivalent.
 
 ### With pre-drawn boxes (recommended)
 

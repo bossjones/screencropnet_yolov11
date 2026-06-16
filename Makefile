@@ -70,14 +70,16 @@ ml-backend-down: ## Stop and remove the ML-backend container
 # Label Studio is installed as an isolated uv tool (`uv tool install
 # label-studio`): its pinned requests/pillow versions conflict with this
 # project's deps, so it cannot live in the project venv. `uvx` == `uv tool run`.
+# Pin --python 3.12: Label Studio's metadata allows up to 3.14, but its
+# django-environ dep imports the removed pkgutil.find_loader and crashes on 3.14.
 label-studio: ## launch Label Studio annotation UI on http://localhost:8080
-	uvx label-studio
+	uvx --python 3.12 label-studio
 
 label-studio-local: ## launch Label Studio serving the screenshots dir as local files
 	# LOCAL_FILES_* lets you import the on-disk screenshots without uploading them
 	LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true \
 	LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=$(CURDIR)/scratch/datasets/twitter_screenshots_raw \
-	uvx label-studio
+	uvx --python 3.12 label-studio
 
 # Local (non-Docker) ML backend launch, mirroring README step 2. Runs as an
 # isolated uv tool; reads the checkpoint from scratch/checkpoints/ (override with
@@ -90,7 +92,7 @@ ml-backend: ## launch the ML backend locally via uvx on http://localhost:9090
 	    --with opencv-python-headless --with redis --with rq \
 	    label-studio-ml start . --port 9090
 
-.PHONY: labeling-stage labeling-tasks labeling-export dataset-validate train
+.PHONY: labeling-stage labeling-tasks labeling-setup-project labeling-export dataset-validate train
 
 # Labeling pipeline targets, mirroring docs/label-studio-annotation-guide.md. The
 # raw commands still live in that guide; these are the one-shot equivalents.
@@ -109,6 +111,12 @@ labeling-tasks: ## build Label Studio tasks.json with boxes pre-drawn (guide ste
 	    --images-root $(RAW_DIR)/train_images \
 	    --images-url-prefix "/data/local-files/?d=train_images" \
 	    --out scratch/labeling/tasks.json
+
+labeling-setup-project: ## create+configure the screencropnet LS project via SDK (needs LABEL_STUDIO_API_KEY)
+	uv run scripts/setup_ls_project.py \
+	    --title screencropnet \
+	    --tasks scratch/labeling/tasks.json \
+	    --ml-backend-url http://localhost:9090
 
 labeling-export: ## convert a Label Studio export (LS_EXPORT) into DATASET_DIR (guide step 8)
 	uv run scripts/ls_yolo_export_to_dataset.py \
