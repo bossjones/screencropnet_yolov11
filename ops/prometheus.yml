@@ -3,6 +3,9 @@ global:
 
 scrape_configs:
   - job_name: screencrop-api
+    # The API mounts the exposition as a sub-app, so the canonical path has a
+    # trailing slash (a bare /metrics 307-redirects to it).
+    metrics_path: /metrics/
     static_configs:
       - targets: ["host.docker.internal:8000"]
   - job_name: screencrop-worker
