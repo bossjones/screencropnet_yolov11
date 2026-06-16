@@ -9,6 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +27,10 @@ class Settings(BaseSettings):
     rabbit_prefetch_count: int = 8
     class_names: list[str] = ["facebook", "tiktok", "twitter"]
     arch: str = "efficientnet_b0"
-    weights_path: Path = Path("~/Documents/my_models/ScreenNetV1.pth").expanduser()
+    # Repo-local, gitignored default; overridable via SCREENCROPNET_WEIGHTS_PATH.
+    # `_expand_weights_path` handles `~` so env overrides like `~/foo.pth` work too.
+    weights_path: Path = Path("scratch/models/ScreenNetV1.pth")
+    weights_url: str = "https://www.dropbox.com/scl/fi/8a5cc7e1ngcnm78kcqnga/ScreenNetV1.pth?rlkey=sbxats642fui9gpuwj8susha0&dl=1"
     device_preference: list[str] = ["mps", "cuda", "cpu"]
     max_upload_bytes: int = 25 * 1024 * 1024
     compress_tmp_dir: Path = Path("/tmp/screencropnet_uploads")
@@ -38,6 +42,11 @@ class Settings(BaseSettings):
     api_port: int = 8000
     worker_metrics_port: int = 8001
     logs_dir: Path = Path("logs")
+
+    @field_validator("weights_path", mode="after")
+    @classmethod
+    def _expand_weights_path(cls, v: Path) -> Path:
+        return v.expanduser()
 
 
 @lru_cache

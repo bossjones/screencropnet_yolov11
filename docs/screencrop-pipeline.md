@@ -51,18 +51,46 @@ uv sync --group worker
 ```
 
 The worker loads `ScreenNetV1.pth` (EfficientNet-B0, classes
-`[facebook, tiktok, twitter]`) from `~/Documents/my_models/ScreenNetV1.pth` by
-default. Download it (or set `SCREENCROPNET_WEIGHTS_PATH`):
+`[facebook, tiktok, twitter]`) from the repo-local, gitignored default
+`scratch/models/ScreenNetV1.pth`. Download it with the make target (parent dirs
+are created automatically, the download is idempotent, and an HTML error page is
+rejected rather than saved as a fake checkpoint):
 
 ```bash
-mkdir -p ~/Documents/my_models
-curl -L 'https://www.dropbox.com/s/im6ytahqgbpyjvw/ScreenNetV1.pth?dl=1' \
-  > ~/Documents/my_models/ScreenNetV1.pth
+make download-weights
 ```
+
+Override the destination with `SCREENCROPNET_WEIGHTS_PATH` (a `~`-prefixed value
+is expanded), e.g. `SCREENCROPNET_WEIGHTS_PATH=~/models/ScreenNetV1.pth make
+download-weights`. Pass `ARGS=--force` to re-download.
 
 `is_twitter = (pred_class == "twitter")`. The unit tests never need the weights
 or a GPU (torch is imported lazily behind a `Classifier` protocol, and
 `FakeClassifier` is injected).
+
+## End-to-end demo and tests (real classifier)
+
+With the weights present you can exercise the **real** model two ways:
+
+```bash
+make download-weights   # fetch scratch/models/ScreenNetV1.pth
+
+# Skip-guarded pytest e2e: real model + real worker code path on sqlite.
+# No Docker required. (-m e2e overrides the default "not integration" filter.)
+make test-e2e
+
+# Full live stack: docker services → migrate → API + worker → CLI
+# submit/status/twitter/export(dry-run) → teardown. Add ARGS=--keep to leave
+# services up; ARGS=--images N to change how many screenshots are submitted.
+make demo
+```
+
+`make test-e2e` asserts the real model classifies ≥ 80% of known Twitter
+screenshots as `twitter` and that a job runs `done` + `is_twitter=True` through
+`handle_message`. Both tests skip cleanly when torch or the weights are absent, so
+`make test` stays green. `make demo` runs a Docker preflight first — if the daemon
+is down it prints an actionable "start Docker Desktop" message instead of a raw
+socket error (as does `make services-up`).
 
 ## Configuration (env knobs)
 
@@ -74,7 +102,7 @@ from `.env`). Common overrides:
 | `SCREENCROPNET_POSTGRES_DSN` | `postgresql+asyncpg://screencrop:screencrop@localhost:5432/screencrop` |
 | `SCREENCROPNET_RABBIT_URL` | `amqp://guest:guest@localhost:5672/` |
 | `SCREENCROPNET_WORKER_QUEUE_NAME` | `screennet_inference_queue` |
-| `SCREENCROPNET_WEIGHTS_PATH` | `~/Documents/my_models/ScreenNetV1.pth` |
+| `SCREENCROPNET_WEIGHTS_PATH` | `scratch/models/ScreenNetV1.pth` |
 | `SCREENCROPNET_MAX_UPLOAD_BYTES` | `26214400` (25 MiB) |
 | `SCREENCROPNET_COMPRESS_TMP_DIR` | `/tmp/screencropnet_uploads` |
 | `SCREENCROPNET_RAW_DATASET_DIR` | `scratch/datasets/twitter_screenshots_raw/train_images` |

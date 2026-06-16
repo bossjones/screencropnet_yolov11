@@ -59,6 +59,25 @@ def test_env_overrides(monkeypatch: MonkeyPatch) -> None:
         raise AssertionError("SCREENCROPNET_WEIGHTS_PATH did not override default")
 
 
+def test_weights_path_default_is_repo_local() -> None:
+    if Settings().weights_path != Path("scratch/models/ScreenNetV1.pth"):
+        raise AssertionError("expected repo-local default weights path")
+
+
+def test_weights_path_expands_tilde_override(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("SCREENCROPNET_WEIGHTS_PATH", "~/some_dir/ScreenNetV1.pth")
+    weights_path = Settings().weights_path
+    if str(weights_path).startswith("~"):
+        raise AssertionError("`~`-based override should expand to an absolute path")
+    if not weights_path.is_absolute():
+        raise AssertionError("expanded weights path should be absolute")
+
+
+def test_weights_url_is_direct_download() -> None:
+    if not Settings().weights_url.endswith("dl=1"):
+        raise AssertionError("weights_url should be a Dropbox direct-download link (dl=1)")
+
+
 def test_get_settings_is_cached() -> None:
     if get_settings() is not get_settings():
         raise AssertionError("get_settings() should return a cached singleton")

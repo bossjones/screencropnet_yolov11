@@ -46,8 +46,21 @@ class ScreenNetClassifier:
             torch.nn.Dropout(p=0.2, inplace=True),
             torch.nn.Linear(in_features=1280, out_features=len(self._class_names), bias=True),
         )
-        state = torch.load(self._weights_path, map_location=self._device)
-        model.load_state_dict(state)
+        # Trusted local checkpoint. torch 2.9 defaults weights_only=True, which
+        # rejects this pickled EfficientNet-B0 state; weights_only=False is safe
+        # for our own file.
+        state = torch.load(self._weights_path, map_location=self._device, weights_only=False)
+        # Some checkpoints wrap the params under a "state_dict"/"model_state_dict"
+        # key rather than being a bare state_dict.
+        if isinstance(state, dict):
+            state = state.get("state_dict") or state.get("model_state_dict") or state
+        try:
+            model.load_state_dict(state)
+        except (RuntimeError, KeyError) as exc:
+            raise RuntimeError(
+                f"checkpoint format mismatch loading {self._weights_path}; "
+                f"expected an EfficientNet-B0 3-class state_dict ({exc})"
+            ) from exc
         model.eval()
         model.to(self._device)
         torch.set_num_threads(1)

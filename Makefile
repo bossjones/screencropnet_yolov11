@@ -57,9 +57,15 @@ build: ## Build the package distribution
 
 # ---- Ingest/classify pipeline: services, migrations, run targets ----
 
-.PHONY: services-up services-down services-logs migrate api worker test-integration
+.PHONY: services-up services-down services-logs migrate api worker test-integration test-e2e download-weights demo docker-preflight
 
-services-up: ## Start Postgres, RabbitMQ, Prometheus (:9091), Grafana (:3001) via docker compose
+docker-preflight: ## Fail fast with an actionable message when the Docker daemon is unreachable
+	@docker info >/dev/null 2>&1 || { \
+		echo "✘ Docker daemon not running — start Docker Desktop (e.g. \`open -a Docker\`) and retry"; \
+		exit 1; \
+	}
+
+services-up: docker-preflight ## Start Postgres, RabbitMQ, Prometheus (:9091), Grafana (:3001) via docker compose
 	@echo "🚀 Starting supporting services"
 	@docker compose up -d
 	@docker compose ps
@@ -84,6 +90,19 @@ worker: ## Run the RabbitMQ classification worker (needs the `worker` dep group 
 test-integration: ## Run the integration suite against real Postgres + RabbitMQ
 	@echo "🚀 Running integration tests"
 	@uv run pytest -m integration
+
+download-weights: ## Download ScreenNetV1.pth into scratch/models (honors SCREENCROPNET_WEIGHTS_PATH; pass ARGS=--force)
+	@uv run scripts/download_screennet_weights.py $(ARGS)
+
+# The e2e tests are marked BOTH `e2e` and `integration`; pytest applies only the last
+# -m expression, so this CLI `-m e2e` replaces (not ANDs) the addopts `-m "not
+# integration"`, selecting them despite the default exclusion.
+test-e2e: ## Run the real-classifier e2e tests (-m e2e overrides the default "not integration" filter)
+	@echo "🚀 Running real-classifier e2e tests"
+	@uv run pytest -m e2e
+
+demo: ## Run the full live-stack end-to-end demo with the real classifier (pass ARGS=--keep)
+	@uv run scripts/e2e_demo.py $(ARGS)
 
 .PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
 
