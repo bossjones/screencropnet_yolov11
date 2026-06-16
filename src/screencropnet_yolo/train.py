@@ -67,6 +67,10 @@ logger = logging.getLogger(__name__)
 
 BANNER = "YOLO 26 Twitter Screenshot Detection"
 
+# Default config shipped inside the package, so `python -m screencropnet_yolo.train`
+# resolves it regardless of the current working directory.
+DEFAULT_CONFIG_PATH = Path(__file__).parent / "config" / "config.yaml"
+
 
 def load_config(config_path: str) -> dict[str, Any]:
     """Load configuration from YAML file."""
@@ -397,15 +401,19 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s --config config/config.yaml
-  %(prog)s --data ./datasets/twitter --epochs 100
+  %(prog)s
+  %(prog)s --data datasets/twitter_screenshots_localization_dataset --epochs 100
   %(prog)s --resume runs/twitter_detect/train/weights/last.pt
         """,
     )
 
     # Config file
     parser.add_argument(
-        "--config", "-c", type=str, default="config/config.yaml", help="Path to config file"
+        "--config",
+        "-c",
+        type=str,
+        default=str(DEFAULT_CONFIG_PATH),
+        help="Path to config file (default: packaged config)",
     )
 
     # Dataset

@@ -1,0 +1,15 @@
+# Documentation
+
+This directory contains the project documentation. Each file covers a distinct topic:
+
+| File | Title | Description |
+|------|-------|-------------|
+| [installation.md](installation.md) | Installation | Installing uv and Python; quick setup cheat sheet for macOS/Linux |
+| [usage.md](usage.md) | Usage | Training CLI syntax, options, and common Python API examples |
+| [dataset-preparation.md](dataset-preparation.md) | Dataset preparation | YOLO-format layout and four ingestion methods: validation, Roboflow pull, Pascal-VOC CSV conversion, and Label Studio |
+| [configuration.md](configuration.md) | Configuration reference | All YAML training config keys, their defaults, and descriptions |
+| [architecture.md](architecture.md) | Architecture | Pipeline stage breakdown and data-flow from dataset acquisition through model export |
+| [api-reference.md](api-reference.md) | API reference | Public classes and functions for each module (`dataset_utils`, `model`, `training`, `evaluation`, `inference`, `visualization`) |
+| [development.md](development.md) | Development | Fork/clone workflow, uv setup, and Makefile shortcuts for contributors |
+| [label-studio-annotation-guide.md](label-studio-annotation-guide.md) | Label Studio annotation guide | Step-by-step bounding-box annotation of Twitter screenshots with EfficientNet-B0 ML backend pre-prediction |
+| [publishing.md](publishing.md) | Publishing releases | Releasing to PyPI via GitHub Actions with dynamic versioning |

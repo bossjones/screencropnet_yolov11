@@ -46,14 +46,14 @@ uv run python -m screencropnet_yolo.train [options]
 ### Examples
 
 ```bash
-# Default config
-uv run python -m screencropnet_yolo.train -c src/screencropnet_yolo/config/config.yaml
+# Default config (the packaged config; trains the canonical dataset)
+uv run python -m screencropnet_yolo.train
 
 # Quick override of dataset + hyperparameters
-uv run python -m screencropnet_yolo.train -d ./datasets/twitter -m s -e 50 -b 32
+uv run python -m screencropnet_yolo.train -d datasets/twitter_screenshots_localization_dataset -m s -e 50 -b 32
 
 # Validate only
-uv run python -m screencropnet_yolo.train -c config/config.yaml --validate-only
+uv run python -m screencropnet_yolo.train --validate-only
 
 # Evaluate / export an existing checkpoint
 uv run python -m screencropnet_yolo.train --eval-only   runs/twitter_detect/train/weights/best.pt

@@ -1,4 +1,5 @@
-label-studio-ml>=1.0.9
+label-studio-ml @ git+https://github.com/HumanSignal/label-studio-ml-backend.git
+rq
 torch>=2.0
 timm>=0.9
 albumentations>=1.4

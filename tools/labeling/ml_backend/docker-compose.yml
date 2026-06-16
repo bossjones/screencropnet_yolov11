@@ -1,0 +1,22 @@
+services:
+  ml-backend:
+    build:
+      context: .
+    image: tweet-region-ml-backend:latest
+    container_name: tweet-region-ml-backend
+    ports:
+      - "9090:9090"
+    environment:
+      # The in-container default checkpoint path breaks (code lives at /app, not
+      # the repo tree), so point it at the mounted checkpoint explicitly.
+      CHECKPOINT_PATH: /ckpt/screencropnet_efficientnet_b0_378.pth
+      # CPU-only on macOS: Docker Desktop runs this container in a Linux VM that
+      # has no Metal (MPS) passthrough and no NVIDIA support, so torch sees no GPU
+      # regardless of DEVICE. For Apple-GPU acceleration run natively instead
+      # (`make ml-backend`, which auto-selects mps). Overriding DEVICE=cuda only
+      # reaches a real GPU on a Linux host with an NVIDIA GPU and a CUDA torch build.
+      DEVICE: ${DEVICE:-cpu}
+      MODEL_INPUT_SIZE: ${MODEL_INPUT_SIZE:-224}
+    volumes:
+      - ../../../scratch/checkpoints:/ckpt:ro
+    restart: unless-stopped

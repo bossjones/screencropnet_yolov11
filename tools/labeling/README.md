@@ -39,14 +39,43 @@ uv run scripts/pascal_csv_to_ls_tasks.py \
 
 ```bash
 cd tools/labeling/ml_backend
-uvx --from label-studio-ml --with torch --with timm --with albumentations \
-    --with opencv-python-headless label-studio-ml start . --port 9090
+uvx --python 3.11 \
+    --from "git+https://github.com/HumanSignal/label-studio-ml-backend.git" \
+    --with torch --with timm --with albumentations \
+    --with opencv-python-headless --with redis --with rq \
+    label-studio-ml start . --port 9090
 ```
+
+From the repo root, `make ml-backend` runs this same command.
 
 The backend reads the checkpoint from
 `scratch/checkpoints/screencropnet_efficientnet_b0_378.pth` by default; override
 with `CHECKPOINT_PATH`. Device is auto-selected (cuda > mps > cpu); override with
 `DEVICE`.
+
+### Or run it in Docker
+
+A `docker-compose.yml` lives next to the `Dockerfile`. It maps port 9090 and
+mounts repo-root `scratch/checkpoints/` read-only into the container, so stage
+the checkpoint (step 0) first. From the repo root:
+
+```bash
+make ml-backend-build   # build the image
+make ml-backend-up-d    # start detached (daemonized)
+make ml-backend-down    # stop and remove
+make ml-backend-up      # or run in the foreground
+```
+
+From inside `tools/labeling/ml_backend/` the same targets are `build`, `up-d`,
+`down`, and `up`. The container runs CPU-only and `DEVICE` defaults to `cpu`.
+On macOS this is a hard limit, not a default you can override away: Docker Desktop
+runs the container in a Linux VM with no Metal (MPS) passthrough and no NVIDIA
+support, so torch never sees a GPU here. For Apple-GPU (MPS) acceleration, run the
+backend natively instead (step 2 above / `make ml-backend`), where the device is
+auto-selected. Overriding `DEVICE=cuda` only reaches a real GPU when the container
+runs on a Linux host with an NVIDIA GPU (and a CUDA-enabled torch build), so it is
+not enabled by default. `CHECKPOINT_PATH` is already set to the mounted checkpoint.
+Confirm it's up with `curl -s http://localhost:9090/health`.
 
 ## 3. Launch Label Studio (terminal 2)
 
@@ -57,14 +86,24 @@ export LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT="$PWD/scratch/datasets/twitter_scr
 uvx label-studio start --port 8080
 ```
 
-In the UI:
+Shortcut: from the repo root, `make labeling-setup-project` (needs
+`LABEL_STUDIO_API_KEY`) does all of the UI steps below via the SDK — create the
+project, apply the label config, import `tasks.json`, connect the ML backend, and
+register the Local Storage (without syncing). See
+[docs/label-studio-annotation-guide.md](../../docs/label-studio-annotation-guide.md)
+for the full walkthrough. To do it by hand instead:
 
 1. Create a project; paste `tools/labeling/label_config.xml` into
    **Settings → Labeling Interface → Code**.
 2. **Settings → Cloud Storage → Add Local Storage**, point it at
-   `scratch/datasets/twitter_screenshots_raw/train_images`, enable "treat every
-   bucket object as a source file", and sync.
-   (Or import `scratch/labeling/tasks.json` directly to get the pre-drawn boxes.)
+   `scratch/datasets/twitter_screenshots_raw/train_images`. A registered Local
+   Storage is required for `/data/local-files/?d=train_images/...` URLs to serve,
+   even when the tasks are imported directly. Pick the case that matches:
+   - **Pre-drawn boxes** — import `scratch/labeling/tasks.json` (Step 1), then add
+     the storage and **save without syncing**. Syncing would create a second,
+     duplicate set of tasks and break the seed-prediction pairing.
+   - **Fresh images (no labels)** — enable "treat every bucket object as a source
+     file" and **Sync** to generate tasks from the directory.
 3. **Settings → Machine Learning → Add Model**: `http://localhost:9090`. Enable
    "Use for interactive preannotations" so fresh images auto-predict on open.
 
@@ -77,32 +116,47 @@ with no seed annotation get an ML-backend prediction on open.
 
 In Label Studio: **Export → YOLO with images** (downloads a ZIP). Then:
 
+This writes back into the canonical dataset folder (the `config.yaml` default),
+clearing its `train/`/`val/`/`test/` subdirs first — it **replaces** the
+existing dataset:
+
 ```bash
 uv run scripts/ls_yolo_export_to_dataset.py \
   --export ./ls_export.zip \
-  --out scratch/datasets/twitter_screenshots/ \
-  --val-ratio 0.2 --seed 42
+  --out datasets/twitter_screenshots_localization_dataset/ \
+  --val-ratio 0.2 --test-ratio 0.1 --seed 42
 ```
 
 Produces:
 
-```
-scratch/datasets/twitter_screenshots/
+```text
+datasets/twitter_screenshots_localization_dataset/
 ├── data.yaml          # nc: 1, names: [tweet_region]
 ├── train/images/  train/labels/
-└── val/images/    val/labels/
+├── val/images/    val/labels/
+└── test/images/   test/labels/
 ```
 
-Point the YOLO26 trainer at `scratch/datasets/twitter_screenshots/data.yaml`.
+This is the default `dataset.path` in the packaged config, so no flags are
+needed:
+
+```bash
+uv run python -m screencropnet_yolo.train   # or: make train
+```
 
 ## Troubleshooting
 
 - **CORS / backend unreachable**: confirm the backend health check at
   `http://localhost:9090/health` returns `{"status": "UP"}`. If Label Studio
   runs in Docker, use `http://host.docker.internal:9090` instead of `localhost`.
-- **Images don't load**: local file serving must be enabled
-  (`LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true`) and the document root must
-  contain the image dir referenced by `--images-url-prefix`.
+- **Images don't load** (`/data/local-files/` errors in the server log):
+  - **`403`** → serving is disabled. Launch with
+    `LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true` and
+    `LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT` set (or use `make label-studio-local`).
+  - **`404`** → serving is on but no Local Storage is registered whose path is a
+    prefix of the requested file (or the file is missing). Register the storage
+    (Step 3, or re-run `make labeling-setup-project`) and confirm the document
+    root contains the image dir referenced by `--images-url-prefix`.
 - **Port already in use**: change `--port` (backend default 9090, UI default
   8080) and update the ML model URL in project settings.
 - **Wrong-looking boxes**: the checkpoint expects a 224×224 ImageNet-normalized
