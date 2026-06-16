@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 from typing import Protocol, cast
 
 import aio_pika
@@ -28,6 +29,21 @@ from screencropnet_yolo.server.metrics import (
     start_worker_metrics_server,
 )
 from screencropnet_yolo.server.schemas import QueueMessage
+
+logger = logging.getLogger("screencropnet_yolo.worker")
+
+
+def _configure_logging(settings: Settings) -> None:
+    settings.logs_dir.mkdir(parents=True, exist_ok=True)
+    log_path = settings.logs_dir / "worker.log"
+    logger.setLevel(logging.INFO)
+    if not any(
+        isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == str(log_path)
+        for h in logger.handlers
+    ):
+        handler = logging.FileHandler(log_path)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+        logger.addHandler(handler)
 
 
 async def handle_message(
@@ -58,9 +74,11 @@ async def handle_message(
             PRED_LATENCY.observe(time_for_pred)
             if twitter:
                 TWITTER_POSITIVE.inc()
+            logger.info("job %s done (twitter=%s)", msg.job_id, twitter)
         except Exception as exc:
             await db.mark_failed(session, msg.job_id, error=str(exc))
             JOBS_PROCESSED.labels(status="failed").inc()
+            logger.exception("job %s failed: %s", msg.job_id, exc)
         finally:
             JOBS_IN_PROGRESS.dec()
 
@@ -84,6 +102,7 @@ async def on_message(
 
 
 async def run_worker(settings: Settings) -> None:
+    _configure_logging(settings)
     classifier = ScreenNetClassifier(settings)
     classifier.load_model()
     start_worker_metrics_server(settings.worker_metrics_port)
@@ -93,6 +112,7 @@ async def run_worker(settings: Settings) -> None:
     channel = await connection.channel()
     await channel.set_qos(prefetch_count=settings.rabbit_prefetch_count)
     queue = await channel.declare_queue(settings.worker_queue_name, durable=True)
+    logger.info("worker consuming from %s", settings.worker_queue_name)
 
     async def _consume(message: aio_pika.abc.AbstractIncomingMessage) -> None:
         await on_message(message, classifier=classifier, session_factory=session_factory)

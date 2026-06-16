@@ -55,6 +55,36 @@ build: ## Build the package distribution
 	@echo "🚀 Building package distribution"
 	@uv build
 
+# ---- Ingest/classify pipeline: services, migrations, run targets ----
+
+.PHONY: services-up services-down services-logs migrate api worker test-integration
+
+services-up: ## Start Postgres, RabbitMQ, Prometheus (:9091), Grafana (:3001) via docker compose
+	@echo "🚀 Starting supporting services"
+	@docker compose up -d
+	@docker compose ps
+
+services-down: ## Stop and remove the supporting services
+	@echo "🚀 Stopping supporting services"
+	@docker compose down
+
+services-logs: ## Follow logs from the supporting services
+	@docker compose logs -f
+
+migrate: ## Apply Alembic migrations to Postgres
+	@echo "🚀 Applying database migrations"
+	@uv run alembic upgrade head
+
+api: ## Run the FastAPI ingest/classify service on 127.0.0.1:8000
+	@uv run uvicorn screencropnet_yolo.server.api:create_app --factory --host 127.0.0.1 --port 8000
+
+worker: ## Run the RabbitMQ classification worker (needs the `worker` dep group + weights)
+	@uv run screencrop-worker
+
+test-integration: ## Run the integration suite against real Postgres + RabbitMQ
+	@echo "🚀 Running integration tests"
+	@uv run pytest -m integration
+
 .PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
 
 ml-backend-build: ## Build the Label Studio ML-backend Docker image

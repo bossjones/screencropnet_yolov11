@@ -40,8 +40,12 @@ class ClassificationJob(Base):
     job_id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     batch_id: Mapped[str] = mapped_column(String, index=True)
     original_path: Mapped[str] = mapped_column(String)
+    # native_enum=False stores the value as VARCHAR + CHECK, so the DDL is
+    # identical on sqlite and Postgres (no native ENUM type to keep in sync).
     status: Mapped[JobStatus] = mapped_column(
-        SAEnum(JobStatus), index=True, default=JobStatus.pending
+        SAEnum(JobStatus, native_enum=False, name="jobstatus"),
+        index=True,
+        default=JobStatus.pending,
     )
     is_twitter: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     pred_class: Mapped[str | None] = mapped_column(String, nullable=True)
