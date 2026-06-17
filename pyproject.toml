@@ -38,11 +38,26 @@ classifiers = [
 # ---- Main dependencies ----
 
 dependencies = [
+    "aio-pika>=9.6.2",
+    "alembic>=1.18.4",
+    "anyio>=4.14.0",
+    "asyncpg>=0.31.0",
+    "fastapi>=0.137.1",
+    "httpx>=0.28.1",
     "matplotlib>=3.10.8",
     "opencv-python>=4.12.0.88",
+    "pillow>=12.0.0",
+    "prometheus-client>=0.25.0",
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "python-multipart>=0.0.32",
     "pyyaml>=6.0.3",
     "seaborn>=0.13.2",
+    "sqlalchemy[asyncio]>=2",
+    "strif>=3.1.0",
+    "typer>=0.26.7",
     "ultralytics>=8.4.52",
+    "uvicorn[standard]>=0.49.0",
     "wandb>=0.23.1",
 ]
 
@@ -69,11 +84,19 @@ dev = [
     "monkeytype>=23.3.0",
     "ty>=0.0.6",
     "albumentationsx>=2.0.13",
+    "pytest-asyncio>=1.4.0",
+    "aiosqlite>=0.22.1",
+]
+worker = [
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
 ]
 
 [project.scripts]
 # Add script entry points here:
 screencropnet_yolo = "screencropnet_yolo:main"
+screencrop-cli = "screencropnet_yolo.client.cli:main"
+screencrop-worker = "screencropnet_yolo.server.worker:main"
 
 
 # ---- Build system ----
@@ -148,7 +171,7 @@ ignore = [
 [tool.basedpyright]
 typeCheckingMode = "recommended"
 failOnWarnings = false
-allowedUntypedLibraries = ["ultralytics", "wandb", "matplotlib", "seaborn", "pyyaml", "opencv-python", "cv2", "numpy"]
+allowedUntypedLibraries = ["ultralytics", "wandb", "matplotlib", "seaborn", "pyyaml", "opencv-python", "cv2", "numpy", "aio_pika", "asyncpg", "prometheus_client"]
 # BasedPyright currently seems like the best type checker option, much faster
 # than mypy and with a good extension for VSCode/Cursor.
 # https://marketplace.visualstudio.com/items?itemName=detachhead.basedpyright
@@ -182,9 +205,13 @@ reportUnannotatedClassAttribute = false
 # skip = "foo.py,bar.py"
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
+# importlib mode avoids "import file mismatch" between same-named test modules
+# (e.g. tests/test_config.py and tests/server/test_config.py) without __init__.py.
 addopts = [
     "-m",
     "not integration",
+    "--import-mode=importlib",
     "--cov-branch",
     "--cov-report=annotate:cov_annotate",
     "--cov-report=html:htmlcov",

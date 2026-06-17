@@ -55,6 +55,111 @@ build: ## Build the package distribution
 	@echo "🚀 Building package distribution"
 	@uv build
 
+# ---- Ingest/classify pipeline: services, migrations, run targets ----
+
+.PHONY: services-up services-down services-logs migrate api worker test-integration test-e2e download-weights demo docker-preflight
+
+docker-preflight: ## Fail fast with an actionable message when the Docker daemon is unreachable
+	@docker info >/dev/null 2>&1 || { \
+		echo "✘ Docker daemon not running — start Docker Desktop (e.g. \`open -a Docker\`) and retry"; \
+		exit 1; \
+	}
+
+services-up: docker-preflight ## Start Postgres, RabbitMQ, Prometheus (:9091), Grafana (:3001) via docker compose
+	@echo "🚀 Starting supporting services"
+	@docker compose up -d
+	@docker compose ps
+
+services-down: ## Stop and remove the supporting services
+	@echo "🚀 Stopping supporting services"
+	@docker compose down
+
+services-logs: ## Follow logs from the supporting services
+	@docker compose logs -f
+
+migrate: ## Apply Alembic migrations to Postgres
+	@echo "🚀 Applying database migrations"
+	@uv run alembic upgrade head
+
+api: ## Run the FastAPI ingest/classify service on 127.0.0.1:8000
+	@uv run uvicorn screencropnet_yolo.server.api:create_app --factory --host 127.0.0.1 --port 8000
+
+worker: ## Run the RabbitMQ classification worker (needs the `worker` dep group + weights)
+	@uv run screencrop-worker
+
+test-integration: ## Run the integration suite against real Postgres + RabbitMQ
+	@echo "🚀 Running integration tests"
+	@uv run pytest -m integration
+
+download-weights: ## Download ScreenNetV1.pth into scratch/models (honors SCREENCROPNET_WEIGHTS_PATH; pass ARGS=--force)
+	@uv run scripts/download_screennet_weights.py $(ARGS)
+
+# The e2e tests are marked BOTH `e2e` and `integration`; pytest applies only the last
+# -m expression, so this CLI `-m e2e` replaces (not ANDs) the addopts `-m "not
+# integration"`, selecting them despite the default exclusion.
+test-e2e: ## Run the real-classifier e2e tests (-m e2e overrides the default "not integration" filter)
+	@echo "🚀 Running real-classifier e2e tests"
+	@uv run pytest -m e2e
+
+demo: ## Run the full live-stack end-to-end demo with the real classifier (pass ARGS=--keep)
+	@uv run scripts/e2e_demo.py $(ARGS)
+
+# ---- Composite & convenience targets ----
+
+.PHONY: wait-healthy stack-up stack-down test-all migrate-revision migrate-down migrate-current migrate-history logs-api logs-worker open-grafana open-rabbitmq open-prometheus
+
+# Internal helper (no ## so it stays out of `help`): block until the Postgres and
+# RabbitMQ containers report healthy via their compose healthchecks, mirroring the
+# health-poll in scripts/e2e_demo.py. ~120s budget (60 tries × 2s).
+wait-healthy:
+	@echo "🚀 Waiting for postgres + rabbitmq to become healthy"
+	@for i in $$(seq 1 60); do \
+		pg=$$(docker compose ps postgres --format '{{.Health}}' 2>/dev/null); \
+		mq=$$(docker compose ps rabbitmq --format '{{.Health}}' 2>/dev/null); \
+		if [ "$$pg" = "healthy" ] && [ "$$mq" = "healthy" ]; then \
+			echo "✔︎ services healthy"; exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "✘ services did not become healthy within ~120s — check \`make services-logs\`"; \
+	exit 1
+
+stack-up: services-up wait-healthy download-weights migrate ## Bring the whole stack online and leave it running (services + weights + migrations)
+	@echo "✔︎ stack ready — run \`make api\` and \`make worker\` in separate terminals"
+
+stack-down: ## Tear the whole stack down (alias for services-down)
+	@$(MAKE) services-down
+
+test-all: test test-integration test-e2e ## Run unit + integration + e2e tests (needs services-up + weights)
+
+migrate-revision: ## Scaffold a new Alembic revision (usage: make migrate-revision m="add foo")
+	@test -n "$(m)" || { echo "✘ pass m=...: make migrate-revision m=\"add x\""; exit 1; }
+	@uv run alembic revision -m "$(m)"
+
+migrate-down: ## Downgrade the database by one revision
+	@uv run alembic downgrade -1
+
+migrate-current: ## Show the current Alembic revision applied to the database
+	@uv run alembic current
+
+migrate-history: ## Show the Alembic migration history
+	@uv run alembic history
+
+logs-api: ## Tail the API log (logs/api.log)
+	@tail -F logs/api.log
+
+logs-worker: ## Tail the worker log (logs/worker.log)
+	@tail -F logs/worker.log
+
+open-grafana: ## Open the Grafana UI in a browser (http://localhost:3001)
+	@open http://localhost:3001
+
+open-rabbitmq: ## Open the RabbitMQ management UI in a browser (http://localhost:15672, guest/guest)
+	@open http://localhost:15672
+
+open-prometheus: ## Open the Prometheus UI in a browser (http://localhost:9091)
+	@open http://localhost:9091
+
 .PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
 
 ml-backend-build: ## Build the Label Studio ML-backend Docker image

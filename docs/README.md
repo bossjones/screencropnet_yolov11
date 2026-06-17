@@ -4,6 +4,8 @@ This directory contains the project documentation. Each file covers a distinct t
 
 | File | Title | Description |
 |------|-------|-------------|
+| [quickstart.md](quickstart.md) | Quickstart | Get the async classify pipeline (FastAPI + worker + Postgres + CLI) running end to end |
+| [screencrop-pipeline.md](screencrop-pipeline.md) | Screenshot ingest/classify pipeline | Architecture, endpoints, Prometheus metrics, export semantics, and the `SCREENCROPNET_` config reference |
 | [installation.md](installation.md) | Installation | Installing uv and Python; quick setup cheat sheet for macOS/Linux |
 | [usage.md](usage.md) | Usage | Training CLI syntax, options, and common Python API examples |
 | [dataset-preparation.md](dataset-preparation.md) | Dataset preparation | YOLO-format layout and four ingestion methods: validation, Roboflow pull, Pascal-VOC CSV conversion, and Label Studio |
