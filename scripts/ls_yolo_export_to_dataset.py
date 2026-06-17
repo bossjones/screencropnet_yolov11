@@ -32,6 +32,7 @@ Run: ``uv run scripts/ls_yolo_export_to_dataset.py --export ls_export.zip \
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import shutil
 import tempfile
@@ -43,6 +44,11 @@ import yaml
 
 CLASS_NAME = "tweet_region"
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".bmp", ".webp", ".tif", ".tiff"}
+
+
+def expanded_path(value: str) -> Path:
+    """Resolve ``~`` and ``$VAR`` references in a user-supplied path argument."""
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def _find_dir(root: Path, name: str) -> Path:
@@ -173,8 +179,10 @@ def build_dataset(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--export", required=True, type=Path, help="Label Studio YOLO export ZIP")
-    parser.add_argument("--out", required=True, type=Path, help="output dataset dir")
+    parser.add_argument(
+        "--export", required=True, type=expanded_path, help="Label Studio YOLO export ZIP"
+    )
+    parser.add_argument("--out", required=True, type=expanded_path, help="output dataset dir")
     parser.add_argument("--val-ratio", type=float, default=0.2, help="validation fraction")
     parser.add_argument(
         "--test-ratio", type=float, default=0.0, help="test fraction (0 disables the test split)"

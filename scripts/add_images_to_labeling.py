@@ -21,6 +21,7 @@ See docs/adding-images-to-label-studio.md for full workflow instructions.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import shutil
 import sys
@@ -34,6 +35,11 @@ DEFAULT_STAGING_DIR = Path("scratch/datasets/twitter_screenshots_raw/train_image
 DEFAULT_SUFFIX = "twitter"
 DEFAULT_EXT = "PNG"
 INDEX_WIDTH = 5
+
+
+def expanded_path(value: str) -> Path:
+    """Resolve ``~`` and ``$VAR`` references in a user-supplied path argument."""
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def detect_next_index(staging_dir: Path, suffix: str, ext: str) -> int:
@@ -152,13 +158,13 @@ def main() -> int:
     parser.add_argument(
         "--source-dir",
         required=True,
-        type=Path,
+        type=expanded_path,
         metavar="DIR",
         help="folder of images to add (jpg/jpeg/png/webp/bmp/tif, non-recursive)",
     )
     parser.add_argument(
         "--staging-dir",
-        type=Path,
+        type=expanded_path,
         default=DEFAULT_STAGING_DIR,
         metavar="DIR",
         help=f"destination staging directory (default: {DEFAULT_STAGING_DIR})",

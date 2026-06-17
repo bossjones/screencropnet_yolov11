@@ -38,9 +38,14 @@ DEFAULT_DEST = Path("scratch/models/ScreenNetV1.pth")
 MIN_VALID_BYTES = 1 * 1024 * 1024
 
 
+def expanded_path(value: str) -> Path:
+    """Resolve ``~`` and ``$VAR`` references in a user-supplied path argument."""
+    return Path(os.path.expandvars(value)).expanduser()
+
+
 def _default_dest() -> Path:
     env = os.environ.get("SCREENCROPNET_WEIGHTS_PATH")
-    return Path(env).expanduser() if env else DEFAULT_DEST
+    return expanded_path(env) if env else DEFAULT_DEST
 
 
 def _looks_like_html(first_chunk: bytes, content_type: str) -> bool:
@@ -89,7 +94,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dest",
-        type=Path,
+        type=expanded_path,
         default=_default_dest(),
         help="destination path for the checkpoint (default honours SCREENCROPNET_WEIGHTS_PATH)",
     )
@@ -100,7 +105,7 @@ def main() -> int:
     parser.add_argument("--sha256", default=None, help="optional expected sha256 to verify the file")
     args = parser.parse_args()
 
-    dest: Path = args.dest.expanduser()
+    dest: Path = args.dest
 
     if dest.exists() and dest.stat().st_size >= MIN_VALID_BYTES and not args.force:
         print(f"✔︎ weights already present: {dest} ({dest.stat().st_size} bytes); use --force to re-download")

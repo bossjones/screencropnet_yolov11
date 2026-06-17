@@ -53,6 +53,11 @@ DEFAULT_IMAGES_SUBDIR = "train_images"
 DEFAULT_LOCAL_STORAGE_TITLE = "Twitter screenshots (local)"
 
 
+def expanded_path(value: str) -> Path:
+    """Resolve ``~`` and ``$VAR`` references in a user-supplied path argument."""
+    return Path(os.path.expandvars(value)).expanduser()
+
+
 def build_label_config() -> str:
     """Return the RectangleLabels labeling interface (mirrors tools/labeling/label_config.xml)."""
     return (
@@ -211,7 +216,7 @@ def main() -> int:
     parser.add_argument("--title", default=DEFAULT_TITLE, help="project title")
     parser.add_argument(
         "--tasks",
-        type=Path,
+        type=expanded_path,
         default=Path(DEFAULT_TASKS),
         help="tasks.json to import; skipped if the file is absent",
     )
@@ -225,7 +230,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--local-files-document-root",
-        type=Path,
+        type=expanded_path,
         default=Path(DEFAULT_DOCUMENT_ROOT),
         help=(
             "local-file serving document root (must match the server's "
