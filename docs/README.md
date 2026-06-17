@@ -14,4 +14,5 @@ This directory contains the project documentation. Each file covers a distinct t
 | [api-reference.md](api-reference.md) | API reference | Public classes and functions for each module (`dataset_utils`, `model`, `training`, `evaluation`, `inference`, `visualization`) |
 | [development.md](development.md) | Development | Fork/clone workflow, uv setup, and Makefile shortcuts for contributors |
 | [label-studio-annotation-guide.md](label-studio-annotation-guide.md) | Label Studio annotation guide | Step-by-step bounding-box annotation of Twitter screenshots with EfficientNet-B0 ML backend pre-prediction |
+| [adding-images-to-label-studio.md](adding-images-to-label-studio.md) | Adding images to Label Studio | Rename and stage new screenshots for annotation; Case A (no labels) and Case B (Pascal-VOC CSV) |
 | [publishing.md](publishing.md) | Publishing releases | Releasing to PyPI via GitHub Actions with dynamic versioning |

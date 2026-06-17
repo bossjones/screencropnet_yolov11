@@ -12,6 +12,10 @@ split ready to hand to the trainer.
 > needed. Follow this guide only to **re-annotate** those images or **add new
 > ones**; the export step writes back into that same canonical folder.
 
+> **Adding new images?** See [Adding images to Label Studio](adding-images-to-label-studio.md)
+> for the rename-and-copy workflow, file-naming conventions, and the
+> `scripts/add_images_to_labeling.py` utility that automates index assignment.
+
 ## How it works
 
 An EfficientNet-B0 ML backend pre-predicts the outer tweet card boundary for

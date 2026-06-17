@@ -208,7 +208,7 @@ ml-backend: ## launch the ML backend locally via uvx on http://localhost:9090
 	    --with opencv-python-headless --with redis --with rq \
 	    label-studio-ml start . --port 9090
 
-.PHONY: labeling-stage labeling-tasks labeling-setup-project labeling-export dataset-validate train
+.PHONY: labeling-stage labeling-tasks labeling-add-images labeling-setup-project labeling-export dataset-validate train
 
 # Labeling pipeline targets, mirroring docs/label-studio-annotation-guide.md. The
 # raw commands still live in that guide; these are the one-shot equivalents.
@@ -227,6 +227,12 @@ labeling-tasks: ## build Label Studio tasks.json with boxes pre-drawn (guide ste
 	    --images-root $(RAW_DIR)/train_images \
 	    --images-url-prefix "/data/local-files/?d=train_images" \
 	    --out scratch/labeling/tasks.json
+
+labeling-add-images: ## copy + rename images from IMAGE_DIR into the staging area (usage: make labeling-add-images IMAGE_DIR=/path/to/images)
+	@test -n "$(IMAGE_DIR)" || (echo "✘ IMAGE_DIR is not set. Usage: make labeling-add-images IMAGE_DIR=/path/to/images" && exit 1)
+	uv run scripts/add_images_to_labeling.py \
+	    --source-dir "$(IMAGE_DIR)" \
+	    --staging-dir "$(CURDIR)/$(RAW_DIR)/train_images"
 
 labeling-setup-project: ## create+configure the screencropnet LS project via SDK (needs LABEL_STUDIO_API_KEY)
 	# --local-files-document-root must match label-studio-local's LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT
