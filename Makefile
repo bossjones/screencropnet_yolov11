@@ -13,6 +13,9 @@ PYTORCH_LAB ?= /Users/bossjones/dev/bossjones/pytorch-lab
 DATASET_DIR ?= datasets/twitter_screenshots_localization_dataset
 LS_EXPORT ?= ./ls_export.zip
 RAW_DIR := scratch/datasets/twitter_screenshots_raw
+# Fallback image source for labeling-export: local-files exports are labels-only,
+# so the converter pulls same-stem images from here. Harmless if absent.
+IMAGES_ROOT ?= $(RAW_DIR)/train_images
 
 # Append-only log for label-studio-local (gitignored via *.log). Query it later
 # when something looks wrong; `make label-studio-log-truncate` empties it.
@@ -246,6 +249,7 @@ labeling-export: ## convert a Label Studio export (LS_EXPORT) into DATASET_DIR (
 	uv run scripts/ls_yolo_export_to_dataset.py \
 	    --export $(LS_EXPORT) \
 	    --out $(DATASET_DIR)/ \
+	    --images-root $(IMAGES_ROOT) \
 	    --val-ratio 0.2 --test-ratio 0.1 --seed 42
 
 dataset-validate: ## validate the canonical dataset without training (guide step 8)

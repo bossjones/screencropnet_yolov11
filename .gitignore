@@ -624,3 +624,6 @@ tools/labeling/ml_backend/.claude/data
 # Ultralytics auto-downloads its base weights into the cwd when the YOLO e2e
 # test runs; never commit these artifacts.
 /yolo*.pt
+ls-export.zip
+ls_export.zip
+runs

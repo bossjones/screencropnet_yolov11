@@ -19,6 +19,22 @@ from ultralytics import YOLO
 logger = logging.getLogger(__name__)
 
 
+def resolve_device(device: str | int | list[int]) -> str | int | list[int]:
+    """Resolve an 'auto' device spec to a concrete torch/ultralytics device.
+
+    ultralytics' val()/predict()/export() reject device='auto' (only train()
+    accepts it), so callers outside training must resolve it first. Explicit
+    devices pass through unchanged.
+    """
+    if device != "auto":
+        return device
+    if torch.cuda.is_available():
+        return 0
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 @dataclass
 class ModelConfig:
     """Configuration container for YOLO model."""

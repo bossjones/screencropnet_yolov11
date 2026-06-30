@@ -16,6 +16,7 @@ from screencropnet_yolo.model import (
     ModelQuantizer,
     compare_models,
     get_model_info,
+    resolve_device,
 )
 
 # --- Helper Functions ---
@@ -341,6 +342,49 @@ class TestModelFactory:
         assert args["imgsz"] == 1280
         assert args["lr0"] == 0.001
         assert args["project"] == "/output"
+
+
+# --- TestResolveDevice ---
+
+
+class TestResolveDevice:
+    """Tests for the module-level resolve_device helper."""
+
+    def test_auto_resolves_to_cuda(self, mocker: MockerFixture) -> None:
+        """'auto' resolves to device 0 when CUDA is available."""
+        mock_torch_cuda(mocker, cuda_available=True, device_count=1)
+
+        assert resolve_device("auto") == 0
+
+    def test_auto_resolves_to_mps(self, mocker: MockerFixture) -> None:
+        """'auto' resolves to 'mps' when only Apple Silicon is available."""
+        mock_torch_cuda(mocker, cuda_available=False, mps_available=True)
+
+        assert resolve_device("auto") == "mps"
+
+    def test_auto_resolves_to_cpu(self, mocker: MockerFixture) -> None:
+        """'auto' falls back to 'cpu' when neither CUDA nor MPS is available."""
+        mock_torch_cuda(mocker, cuda_available=False, mps_available=False, has_mps_attr=False)
+
+        assert resolve_device("auto") == "cpu"
+
+    def test_explicit_cpu_passes_through(self, mocker: MockerFixture) -> None:
+        """Explicit 'cpu' is returned unchanged even when CUDA is available."""
+        mock_torch_cuda(mocker, cuda_available=True, device_count=1)
+
+        assert resolve_device("cpu") == "cpu"
+
+    def test_explicit_mps_passes_through(self, mocker: MockerFixture) -> None:
+        """Explicit 'mps' is returned unchanged."""
+        mock_torch_cuda(mocker, cuda_available=True, device_count=1)
+
+        assert resolve_device("mps") == "mps"
+
+    def test_explicit_int_passes_through(self, mocker: MockerFixture) -> None:
+        """Explicit integer device index is returned unchanged."""
+        mock_torch_cuda(mocker, cuda_available=False, has_mps_attr=False)
+
+        assert resolve_device(0) == 0
 
 
 # --- TestAugmentationConfig ---

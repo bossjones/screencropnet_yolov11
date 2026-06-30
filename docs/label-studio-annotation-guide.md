@@ -324,6 +324,13 @@ mv ~/Downloads/project-1-at-*.zip ./ls_export.zip
 This writes back into the canonical dataset folder (the `config.yaml` default).
 `--test-ratio` reproduces the train/val/test layout the trainer expects.
 
+> **Labels-only export — this is normal.** Because the images are served from
+> Local Storage by reference (`/data/local-files/?d=…`), Label Studio's "YOLO
+> with images" export bundles the `labels/` but leaves `images/` **empty** — it
+> does not copy referenced files into the ZIP. The converter therefore pulls each
+> label's image from `--images-root` (the staged `train_images/` dir) by matching
+> filenames. `make labeling-export` passes this for you.
+
 > **Heads-up:** the converter clears the `train/`, `val/`, and `test/` subdirs of
 > `--out` before copying, so this **replaces** the existing canonical dataset.
 
@@ -331,12 +338,22 @@ This writes back into the canonical dataset folder (the `config.yaml` default).
 uv run scripts/ls_yolo_export_to_dataset.py \
   --export ./ls_export.zip \
   --out datasets/twitter_screenshots_localization_dataset/ \
+  --images-root scratch/datasets/twitter_screenshots_raw/train_images \
   --val-ratio 0.2 \
   --test-ratio 0.1 \
   --seed 42
 ```
 
 Equivalent: `make labeling-export LS_EXPORT=./ls_export.zip`.
+
+> **Why not just Sync the storage to get one self-contained ZIP?** Syncing
+> doesn't help: it still won't pack the referenced images into the export, and it
+> *adds a duplicate task per file* on top of the imported `tasks.json` (which is
+> why Step 6 says add the storage but don't sync — Label Studio's own docs say to
+> choose **Save**, not **Save & Sync**, for reference-based tasks). A single
+> self-contained ZIP would require uploading the image files directly into Label
+> Studio, which gives up the pre-drawn seed-box workflow. The labels-only export
+> plus `--images-root` rejoin is the intended path.
 
 Output:
 
