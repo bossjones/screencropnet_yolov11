@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,11 @@ LABEL = "tweet_region"
 MODEL_VERSION = "pascal_csv_seed"
 FROM_NAME = "label"
 TO_NAME = "image"
+
+
+def expanded_path(value: str) -> Path:
+    """Resolve ``~`` and ``$VAR`` references in a user-supplied path argument."""
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def bbox_to_ls_value(
@@ -142,10 +148,10 @@ def load_tasks(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", required=True, type=Path, help="Pascal-VOC CSV path")
+    parser.add_argument("--csv", required=True, type=expanded_path, help="Pascal-VOC CSV path")
     parser.add_argument(
         "--images-root",
-        type=Path,
+        type=expanded_path,
         default=None,
         help="optional dir of images; rows with a missing file are skipped",
     )
@@ -154,7 +160,7 @@ def main() -> int:
         required=True,
         help="URL prefix Label Studio uses to serve images, e.g. /data/local-files/?d=train_images",
     )
-    parser.add_argument("--out", required=True, type=Path, help="output tasks.json path")
+    parser.add_argument("--out", required=True, type=expanded_path, help="output tasks.json path")
     args = parser.parse_args()
 
     tasks, skipped = load_tasks(args.csv, args.images_url_prefix, args.images_root)
