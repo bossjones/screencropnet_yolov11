@@ -503,10 +503,16 @@ def main() -> int:
         # Train model
         history = train_model(config, args.resume)
 
-        # Find best model
-        best_model = Path(output_dir) / "train" / "weights" / "best.pt"
-        if not best_model.exists():
-            best_model = Path(output_dir) / "train" / "weights" / "last.pt"
+        # Find best model: prefer the path the trainer captured (ultralytics chooses
+        # the run dir), falling back to the conventional location.
+        best_model_path = getattr(history, "best_model_path", "")
+        best_model = (
+            Path(best_model_path) if isinstance(best_model_path, str) and best_model_path else None
+        )
+        if best_model is None or not best_model.exists():
+            best_model = Path(output_dir) / "train" / "weights" / "best.pt"
+            if not best_model.exists():
+                best_model = Path(output_dir) / "train" / "weights" / "last.pt"
 
         # Evaluate
         results = evaluate_model(config, str(best_model), output_dir)
