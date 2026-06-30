@@ -29,6 +29,20 @@ _BOX_KEYS = {
 }
 
 
+def _format_epoch_label(epoch: int, total: int | None) -> str:
+    """Render the per-epoch progress prefix as ``N/total`` (or bare ``N`` if unknown).
+
+    Ultralytics fires one extra validation pass after the final training epoch, so
+    ``epoch`` can exceed ``total``; that pass is labeled as a post-training validation
+    rather than a nonsensical ``N+1/N``.
+    """
+    if not isinstance(total, int) or total <= 0:
+        return str(epoch)
+    if epoch > total:
+        return f"{total}/{total} (final val)"
+    return f"{epoch}/{total}"
+
+
 def _box_metrics(trainer: Any) -> dict[str, float]:
     """Pull detection metrics out of ultralytics' ``trainer.metrics`` dict.
 
@@ -155,16 +169,24 @@ class TrainingCallback:
 class MetricsLogger(TrainingCallback):
     """Callback for logging training metrics."""
 
-    def __init__(self, history: TrainingHistory, log_interval: int = 1):
+    def __init__(
+        self,
+        history: TrainingHistory,
+        log_interval: int = 1,
+        total_epochs: int | None = None,
+    ):
         """
         Initialize metrics logger.
 
         Args:
             history: TrainingHistory instance to update
             log_interval: Epochs between detailed logging
+            total_epochs: Total planned epochs, rendered as ``Epoch N/total`` so
+                operators can gauge progress. Falls back to ``trainer.epochs``.
         """
         self.history = history
         self.log_interval = log_interval
+        self.total_epochs = total_epochs
         self.epoch_start_time: float | None = None
 
     def on_epoch_start(self, trainer: Any) -> None:
@@ -178,6 +200,8 @@ class MetricsLogger(TrainingCallback):
         import time
 
         epoch = trainer.epoch + 1
+        total = self.total_epochs or getattr(trainer, "epochs", None)
+        epoch_label = _format_epoch_label(epoch, total)
 
         # Extract metrics from trainer
         metrics = TrainingMetrics(
@@ -212,7 +236,7 @@ class MetricsLogger(TrainingCallback):
                 time.time() - self.epoch_start_time if self.epoch_start_time is not None else 0.0
             )
             logger.info(
-                f"Epoch {epoch}: "
+                f"Epoch {epoch_label}: "
                 f"loss={metrics.train_loss:.4f}, "
                 f"mAP50={metrics.mAP50:.4f}, "
                 f"mAP50-95={metrics.mAP50_95:.4f}, "
@@ -331,7 +355,7 @@ class CheckpointCallback(TrainingCallback):
                 self.best_map = current_map
                 best_path = self.save_dir / "best.pt"
                 shutil.copyfile(last, best_path)
-                logger.info(f"Saved new best model (mAP50-95: {current_map:.4f})")
+                logger.info(f"Saved new best model (mAP50-95: {current_map:.4f}) -> {best_path}")
 
 
 class TensorBoardCallback(TrainingCallback):
@@ -487,7 +511,9 @@ class Trainer:
     def _setup_default_callbacks(self) -> None:
         """Set up default training callbacks."""
         # Metrics logger
-        self.callbacks.append(MetricsLogger(self.history))
+        self.callbacks.append(
+            MetricsLogger(self.history, total_epochs=self.config.get("epochs", 100))
+        )
 
         # Early stopping
         if self.config.get("patience", 0) > 0:
@@ -717,3 +743,20 @@ def create_ablation_study(
     logger.info(f"Ablation study complete. Summary saved to: {summary_path}")
 
     return results
+
+
+## Tests
+
+
+def test_format_epoch_label() -> None:
+    cases = {
+        (1, 100): "1/100",
+        (12, 100): "12/100",
+        (1, 1): "1/1",
+        (3, 2): "2/2 (final val)",  # ultralytics' post-training validation pass
+    }
+    for (epoch, total), expected in cases.items():
+        if _format_epoch_label(epoch, total) != expected:
+            raise AssertionError(f"epoch {epoch}/{total} -> {_format_epoch_label(epoch, total)!r}")
+    if _format_epoch_label(3, None) != "3":
+        raise AssertionError("unknown total must render the bare epoch number")

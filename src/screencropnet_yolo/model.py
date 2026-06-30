@@ -9,6 +9,7 @@ This module handles:
 """
 
 import logging
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -294,16 +295,21 @@ class ModelExporter:
         "ncnn",
     ]
 
-    def __init__(self, model: YOLO, output_dir: str):
+    def __init__(self, model: YOLO, output_dir: str, source_weights: str | Path | None = None):
         """
         Initialize model exporter.
 
         Args:
             model: Trained YOLO model
             output_dir: Output directory for exported models
+            source_weights: Path to the actual ``.pt`` checkpoint backing ``model``.
+                Ultralytics writes the real best weights to
+                ``{run}/train/weights/best.pt``, not ``{output_dir}/best.pt``; the
+                ``pytorch`` export reports/copies this file instead of guessing.
         """
         self.model = model
         self.output_dir = Path(output_dir)
+        self.source_weights = Path(source_weights) if source_weights else None
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def export(
@@ -329,16 +335,22 @@ class ModelExporter:
         Returns:
             Dictionary mapping format to export path
         """
-        exported = {}
+        exported: dict[str, str] = {}
 
-        for format_name in formats:
+        # PyTorch is the guaranteed primary artifact: export it first and never let a
+        # failure of an optional format (ONNX, etc.) drop or precede it.
+        ordered = sorted(formats, key=lambda f: f.lower() != "pytorch")
+
+        for format_name in ordered:
             format_lower = format_name.lower()
 
             if format_lower == "pytorch":
-                # PyTorch format is already saved during training
-                pt_path = self.output_dir / "best.pt"
-                if pt_path.exists():
+                pt_path = self._resolve_pytorch_path()
+                if pt_path is not None:
                     exported["pytorch"] = str(pt_path)
+                    logger.info(f"  PyTorch weights: {pt_path}")
+                else:
+                    logger.warning("PyTorch export requested but no source weights were found")
                 continue
 
             if format_lower not in self.SUPPORTED_FORMATS:
@@ -348,7 +360,7 @@ class ModelExporter:
             try:
                 logger.info(f"Exporting model to {format_name} format...")
 
-                export_args = {
+                export_args: dict[str, Any] = {
                     "format": format_lower,
                     "imgsz": image_size,
                     "half": half,
@@ -368,9 +380,36 @@ class ModelExporter:
                 logger.info(f"  Exported to: {export_path}")
 
             except Exception as e:
-                logger.error(f"Failed to export to {format_name}: {str(e)}")
+                # Optional formats fail soft: warn and continue so the run still
+                # completes with the PyTorch artifact intact.
+                logger.warning(f"Failed to export to {format_name}, skipping: {e}")
 
         return exported
+
+    def _resolve_pytorch_path(self) -> Path | None:
+        """Resolve the real best ``.pt`` and copy it to a stable, reported location.
+
+        Returns the path under ``output_dir`` the caller can rely on, or None if no
+        source checkpoint is available. Falls back to ``{output_dir}/best.pt`` /
+        ``train/weights/best.pt`` for legacy callers that don't pass ``source_weights``.
+        """
+        source = self.source_weights
+        if source is None or not source.exists():
+            for candidate in (
+                self.output_dir / "best.pt",
+                self.output_dir / "train" / "weights" / "best.pt",
+                self.output_dir / "train" / "weights" / "last.pt",
+            ):
+                if candidate.exists():
+                    source = candidate
+                    break
+            else:
+                return None
+
+        target = self.output_dir / "best.pt"
+        if source.resolve() != target.resolve():
+            shutil.copyfile(source, target)
+        return target
 
 
 class ModelQuantizer:
