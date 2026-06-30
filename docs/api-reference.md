@@ -53,8 +53,13 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
   `.get_training_args(data_yaml, output_dir) -> dict`.
 - `AugmentationConfig` — `get_augmentation(strategy="twitter") -> dict`
   (strategies: `twitter`, `conservative`, `aggressive`).
-- `ModelExporter(model, output_dir)` — `.export(formats, image_size=640,
-  half=False, dynamic=False, simplify=True, opset=12) -> dict[str, str]`.
+- `ModelExporter(model, output_dir, source_weights=None)` — `.export(formats,
+  image_size=640, half=False, dynamic=False, simplify=True, opset=12) ->
+  dict[str, str]`. `source_weights` is the real `.pt` checkpoint backing `model`
+  (Ultralytics writes it to `{run}/train/weights/best.pt`, not `{output_dir}`);
+  the `pytorch` format reports/copies that file instead of guessing. PyTorch is
+  exported first; other formats (e.g. `onnx`) fail soft — a failed export logs
+  a warning and is skipped rather than aborting the run.
 - `ModelQuantizer(model_path)` — `.quantize_int8(calibration_data, output_path)`,
   `.quantize_fp16(output_path)`.
 
@@ -62,6 +67,35 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
 
 - `get_model_info(model) -> dict`
 - `compare_models(model_paths, test_image) -> dict`
+
+## `output`
+
+Pure presentation helpers for the training CLI (no Ultralytics/torch imports,
+raw ANSI rather than `rich`). Drives the run-configuration banner, the closing
+artifacts table, and color-aware logging.
+
+### Classes
+
+- `Color` — raw ANSI SGR code constants (`RESET`, `BOLD`, `DIM`, `RED`,
+  `GREEN`, `YELLOW`, `BLUE`, `CYAN`).
+- `Artifact(label, path, size)` (dataclass) — one row in the artifacts table;
+  `path`/`size` are `None` when the artifact wasn't produced.
+- `ColorFormatter(fmt=None, datefmt=None, *, enabled=False)` — a
+  `logging.Formatter` that colorizes the levelname when `enabled`; behaves as a
+  plain formatter otherwise, so the same format string drives both the colored
+  stream handler and the plain file handler.
+
+### Functions
+
+- `colorize(text, color, *, enabled) -> str` — wrap `text` in an ANSI code +
+  reset, or return it unchanged when `enabled` is false or `color` is empty.
+- `human_size(n_bytes) -> str` — format a byte count as e.g. `1.5 KB`.
+- `format_run_summary(*, model_size, arch, device, epochs, batch, imgsz,
+  dataset_path, output_dir, weights_dir, best_pt, export_formats, enabled=False)
+  -> str` — render the startup `RUN CONFIGURATION` banner.
+- `format_artifacts_table(rows, *, best_epoch=None, best_map=None,
+  enabled=False) -> str` — render the closing `ARTIFACTS` table from a list of
+  `Artifact`s.
 
 ## `training`
 

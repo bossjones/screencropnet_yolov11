@@ -45,12 +45,14 @@ This is a YOLO 26 training/inference pipeline for detecting and classifying boun
 Pipeline modules (each is a self-contained stage; the train script wires them together):
 
 - `dataset_utils.py` — `RoboflowLoader`, `DatasetSplitter`, `DatasetValidator`, `create_dataset_yaml`, `check_class_imbalance`, `display_dataset_stats`. Handles dataset acquisition, train/val/test splits, and YOLO-format `data.yaml` generation.
-- `model.py` — `ModelConfig`, `AugmentationConfig`, `ModelFactory`, `ModelExporter`. Wraps Ultralytics `YOLO` with config dataclasses; centralizes hyperparameters, device selection, multi-GPU setup, and export formats.
+- `dataset_import.py` — `prepare_twitter_dataset`, `convert_csv`, `pascal_row_to_yolo`. Bridges externally produced Pascal-VOC CSV annotations into the single-class `tweet_region` YOLO layout, reusing `DatasetSplitter`/`create_dataset_yaml`.
+- `model.py` — `ModelConfig`, `AugmentationConfig`, `ModelFactory`, `ModelExporter`, `ModelQuantizer`. Wraps Ultralytics `YOLO` with config dataclasses; centralizes hyperparameters, device selection, multi-GPU setup, and export formats. `ModelExporter` exports `pytorch` first (copying the real `train/weights/best.pt` via `source_weights`); other formats fail soft.
 - `training.py` — `Trainer`, `TrainingHistory`, `create_ablation_study`. Owns the training loop and produces history artifacts; ablation helper compares hyperparameter variants.
 - `evaluation.py` — `Evaluator`, `EvaluationResults`. Computes metrics on val/test sets after training.
 - `inference.py` — runtime prediction on new images.
 - `visualization.py` — `TrainingVisualizer`, `ConfusionMatrixVisualizer`, `ResultsDashboard`. Plot helpers used by both training and evaluation.
-- `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Logs to a timestamped file under the run's output dir.
+- `output.py` — `format_run_summary`, `format_artifacts_table`, `human_size`, `colorize`, `Color`, `Artifact`, `ColorFormatter`. Pure presentation helpers for the CLI's run banner, artifacts table, and color-aware logging; no Ultralytics/torch imports, raw ANSI instead of `rich`. Color is opt-in via `--color` (auto-disabled off a TTY or under `NO_COLOR`).
+- `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Prints a RUN CONFIGURATION banner before training and an ARTIFACTS table after export. Logs to a timestamped file under the run's output dir.
 - `screencropnet_yolo.py` — package entrypoint exposed via `[project.scripts]` as the `screencropnet_yolo` command (currently a stub `main()`).
 - `config/config.yaml` — default training config consumed by `train.py --config`.
 
