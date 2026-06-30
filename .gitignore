@@ -182,6 +182,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 .claude/settings.local.json
+.claude.local.md
 src/screencropnet_yolo/config/datasets/
 # Generated/converted training datasets at the repo root (e.g. Pascal-VOC -> YOLO output)
 /datasets/

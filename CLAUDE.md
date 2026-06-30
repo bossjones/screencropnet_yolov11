@@ -30,6 +30,7 @@ Pytest specifics:
 - Custom markers: `e2e`, `fast`, `integration`, `slow`, `unittest`. Deselect with e.g. `-m "not slow"`.
 - Tests have a 30s thread-based timeout by default.
 - Coverage is on by default and writes to `cov.xml`, `htmlcov/`, `cov_annotate/`, and `junit/test-results.xml`. Open the HTML report with `make open-coverage`.
+- Don't override coverage (`-p no:cov` or a custom `--cov`) — `addopts` injects cov flags and overriding them errors; run `uv run pytest <target>` as-is.
 
 Type-stub generation from runtime traces:
 
@@ -54,6 +55,16 @@ Pipeline modules (each is a self-contained stage; the train script wires them to
 - `config/config.yaml` — default training config consumed by `train.py --config`.
 
 Key external dependencies: `ultralytics` (YOLO 26), `torch`, `opencv-python`, `wandb` (experiment tracking), `matplotlib`/`seaborn` (plots), `albumentationsx` (augmentation, dev-only).
+
+ONNX export deps (`onnx`, `onnxslim`, `onnxruntime`) are pinned in main `dependencies`: ultralytics' export tries to `pip install` them on demand, which fails in the uv venv (no `pip`), so they must stay declared — add deps with `uv add`, never rely on auto-install.
+
+End-to-end smoke (full train→eval→export→visualize against the local default dataset; Roboflow is disabled by default in `config.yaml`):
+
+```bash
+uv run python -m screencropnet_yolo.train --epochs 2 --model-size n --batch 4 --imgsz 320 --output ./runs/smoke
+```
+
+The default dataset lives at `datasets/twitter_screenshots_localization_dataset` (train/val/test + `data.yaml`); all `runs/` output is gitignored.
 
 ## Project conventions
 
