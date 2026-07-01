@@ -653,8 +653,8 @@ class TestResultExporter:
         """Real predictions carry numpy float32 bbox coords; to_json must serialize them."""
         det = create_detection(
             confidence=np.array([0.87], dtype=np.float32)[0],
-            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),
-            bbox_normalized=tuple(np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)),
+            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),  # ty: ignore[invalid-argument-type]
+            bbox_normalized=tuple(np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)),  # ty: ignore[invalid-argument-type]
         )
         result = create_inference_result(detections=[det])
 
@@ -669,7 +669,7 @@ class TestResultExporter:
         """to_coco must serialize numpy float32 coords/scores from real predictions."""
         det = create_detection(
             confidence=np.array([0.87], dtype=np.float32)[0],
-            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),
+            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),  # ty: ignore[invalid-argument-type]
         )
         result = create_inference_result(detections=[det])
 

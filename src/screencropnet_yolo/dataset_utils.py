@@ -398,7 +398,9 @@ class RoboflowLoader:
             Path to downloaded dataset
         """
         try:
-            from roboflow import Roboflow  # pyright: ignore[reportMissingImports]
+            from roboflow import (  # pyright: ignore[reportMissingImports]  # ty: ignore[unresolved-import]
+                Roboflow,
+            )
         except ImportError as err:
             raise ImportError(
                 "roboflow package not installed. Install with: pip install roboflow"
@@ -444,7 +446,7 @@ class TwitterScreenshotPreprocessor:
             Preprocessed image
         """
         # Convert to RGB
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # pyright: ignore[reportAssignmentType]
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)  # pyright: ignore[reportAssignmentType]  # ty: ignore[invalid-assignment]
 
         # Remove compression artifacts
         image = self._reduce_compression_artifacts(image)
@@ -453,13 +455,13 @@ class TwitterScreenshotPreprocessor:
         image = self._normalize_colors(image)
 
         # Convert back to BGR for OpenCV compatibility
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # pyright: ignore[reportAssignmentType]
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)  # pyright: ignore[reportAssignmentType]  # ty: ignore[invalid-assignment]
 
         return image  # pyright: ignore[reportReturnType]
 
     def _reduce_compression_artifacts(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Apply mild denoising to reduce JPEG compression artifacts."""
-        return cv2.fastNlMeansDenoisingColored(image, None, 3, 3, 7, 21)  # pyright: ignore[reportReturnType]
+        return cv2.fastNlMeansDenoisingColored(image, None, 3, 3, 7, 21)  # pyright: ignore[reportReturnType]  # ty: ignore[invalid-return-type]
 
     def _normalize_colors(self, image: npt.NDArray[np.uint8]) -> npt.NDArray[np.uint8]:
         """Normalize image colors for consistent processing."""
@@ -471,7 +473,7 @@ class TwitterScreenshotPreprocessor:
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
 
         # Convert back to RGB
-        return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)  # pyright: ignore[reportReturnType]
+        return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)  # pyright: ignore[reportReturnType]  # ty: ignore[invalid-return-type]
 
     def letterbox(
         self,
@@ -522,11 +524,11 @@ class TwitterScreenshotPreprocessor:
         dh /= 2
 
         if shape[::-1] != new_unpad:  # Resize
-            image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)  # pyright: ignore[reportAssignmentType]
+            image = cv2.resize(image, new_unpad, interpolation=cv2.INTER_LINEAR)  # pyright: ignore[reportAssignmentType]  # ty: ignore[invalid-assignment]
 
         top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
-        image = cv2.copyMakeBorder(  # pyright: ignore[reportAssignmentType]
+        image = cv2.copyMakeBorder(  # pyright: ignore[reportAssignmentType]  # ty: ignore[invalid-assignment]
             image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color
         )
 

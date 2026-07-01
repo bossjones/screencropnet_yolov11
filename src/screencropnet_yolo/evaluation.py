@@ -513,7 +513,7 @@ def find_optimal_confidence(
 
     logger.info(f"Optimal confidence threshold: {best_conf:.2f} ({metric}={best_value:.4f})")
 
-    return best_conf, best_value
+    return float(best_conf), float(best_value)
 
 
 def benchmark_model(
@@ -553,7 +553,7 @@ def benchmark_model(
 
         # Warmup
         for _ in range(warmup_runs):
-            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]
+            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]  # ty: ignore[call-non-callable]
 
         # Synchronize if CUDA
         if device == "cuda":
@@ -563,7 +563,7 @@ def benchmark_model(
         times = []
         for _ in range(test_runs):
             start = time.perf_counter()
-            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]
+            _ = model.model(dummy_input)  # pyright: ignore[reportCallIssue, reportOptionalCall]  # ty: ignore[call-non-callable]
             if device == "cuda":
                 torch.cuda.synchronize()
             times.append(time.perf_counter() - start)
