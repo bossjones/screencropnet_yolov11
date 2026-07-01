@@ -43,6 +43,18 @@ class Settings(BaseSettings):
     worker_metrics_port: int = 8001
     logs_dir: Path = Path("logs")
 
+    # Per-worker log override: when set, a worker routes its FileHandler here
+    # instead of the shared `logs_dir/worker.log`. The supervisor assigns a
+    # distinct path per child via SCREENCROPNET_WORKER_LOG_PATH so a fleet
+    # doesn't interleave into one file.
+    worker_log_path: Path | None = None
+
+    # `screencrop-supervisorctl` fleet defaults. State files (PID/port/weights)
+    # live under supervisor_state_dir; each worker gets metrics port base+i.
+    supervisor_state_dir: Path = Path("logs/supervisor")
+    supervisor_metrics_base_port: int = 8001
+    supervisor_workers: int = 2
+
     # `serve --select` fuzzy-picks weights from these roots; `.pth` (ScreenNet) is
     # included alongside the demo's `.pt`/`.onnx` via SERVER_MODEL_EXTS.
     model_search_roots: list[Path] = [Path("runs"), Path("scratch/models")]

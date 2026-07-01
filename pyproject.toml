@@ -104,6 +104,8 @@ screencropnet_yolo = "screencropnet_yolo:main"
 screencrop-cli = "screencropnet_yolo.client.cli:main"
 screencrop-worker = "screencropnet_yolo.server.worker:main"
 screencrop-demo = "screencropnet_yolo.demo:main"
+screencrop-supervisor-worker = "screencropnet_yolo.client.supervisor:main"
+screencrop-supervisorctl = "screencropnet_yolo.client.supervisor:main"
 
 
 # ---- Build system ----
