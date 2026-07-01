@@ -6,7 +6,7 @@ Actions, when using the
 
 Thanks to [the dynamic versioning
 plugin](https://github.com/ninoseki/uv-dynamic-versioning/) and the
-[`publish.yml` workflow](https://github.com/jlevy/simple-modern-uv/blob/main/template/.github/workflows/publish.yml),
+[`publish.yml` workflow](https://github.com/jlevy/simple-modern-uv/tree/main/template/.github/workflows),
 you can simply create tagged releases (using standard format for the tag name, e.g.
 `v0.1.0`) on GitHub and the tag will trigger a release build, which then uploads it to
 PyPI.
