@@ -70,6 +70,10 @@ the chosen source (e.g. `selected (best.onnx)`) so the output is never ambiguous
 > not a Python package — the `pyfzf` wrapper only shells out to it, and it is
 > imported lazily so the rest of the demo never requires it.
 
+The same picker (factored into `screencropnet_yolo.model_select`) also powers the
+server side — see [serve.md](serve.md) for `screencrop-cli serve --select`, which
+additionally lists `.pth` ScreenNet classifier weights.
+
 ### Output layout
 
 Everything is written under the output dir (a fresh

@@ -1,0 +1,15 @@
+# rumdl configuration for the project's Markdown docs.
+# See .claude/rules/documentation.md and .github/workflows/docs.yml.
+
+[global]
+# These rules are disabled to match the docs' established house style, so the
+# existing corpus lints clean without reformatting hand-written and generated docs:
+#   MD013 — line length: tables, mermaid source, and full URLs stay on one line;
+#           prose is still hand-wrapped to ~80 columns by convention.
+#   MD004 / MD069 — list-marker style: some docs use "* * *" thematic breaks.
+#   MD041 — first-line heading: a few docs open with an H2 title.
+#   MD028 — blank lines inside multi-paragraph blockquotes (runbooks).
+#   MD036 — emphasis-as-heading: breadcrumb lines like "*A → B → C*".
+#   MD051 — link fragments: cross-doc anchors are covered by the lychee link check.
+# Code-fence language (MD040) and link/heading correctness stay enabled.
+disable = ["MD013", "MD004", "MD069", "MD041", "MD028", "MD036", "MD051"]
