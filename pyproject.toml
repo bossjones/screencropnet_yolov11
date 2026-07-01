@@ -59,6 +59,7 @@ dependencies = [
     "seaborn>=0.13.2",
     "sqlalchemy[asyncio]>=2",
     "strif>=3.1.0",
+    "textual>=8.2.8",
     "typer>=0.26.7",
     "ultralytics>=8.4.52",
     "uvicorn[standard]>=0.49.0",
@@ -90,6 +91,7 @@ dev = [
     "albumentationsx>=2.0.13",
     "pytest-asyncio>=1.4.0",
     "aiosqlite>=0.22.1",
+    "pyinstrument>=5.1.2",
 ]
 worker = [
     "torch>=2.9.1",

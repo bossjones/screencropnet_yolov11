@@ -17,6 +17,9 @@ from rich.console import Console
 from rich.table import Table
 
 from screencropnet_yolo.client.api_client import ScreenCropClient
+from screencropnet_yolo.client.doctor import exit_code, render_json, render_table, run_doctor
+from screencropnet_yolo.client.serve import serve as run_serve
+from screencropnet_yolo.client.tui import TopApp
 from screencropnet_yolo.server.config import Settings, get_settings
 from screencropnet_yolo.server.export import export_originals
 from screencropnet_yolo.server.schemas import JobView, StatusSummary
@@ -201,5 +204,48 @@ def export(
     console.print(table)
 
 
+@app.command()
+def top(
+    batch_id: str | None = typer.Option(None, "--batch-id"),
+    refresh: float = typer.Option(5.0, "--refresh", help="Seconds between refreshes."),
+) -> None:
+    """Live Textual dashboard of jobs in flight (refreshes every --refresh seconds)."""
+    client = build_client(get_settings())
+    try:
+        TopApp(client=client, batch_id=batch_id, refresh_seconds=refresh).run()
+    finally:
+        asyncio.run(client.aclose())
+
+
+@app.command()
+def doctor(
+    json_output: bool = typer.Option(False, "--json", help="Emit raw JSON instead of a table."),
+) -> None:
+    """Health-check every service: postgres, rabbitmq, prometheus, grafana, api, worker."""
+    results = asyncio.run(run_doctor(get_settings()))
+    if json_output:
+        typer.echo(render_json(results))
+    else:
+        console.print(render_table(results))
+    raise typer.Exit(exit_code(results))
+
+
+@app.command()
+def serve(
+    select: bool = typer.Option(
+        False, "--select", "--fuzzy", help="Interactively pick weights (.pt/.onnx/.pth) via fzf."
+    ),
+    host: str | None = typer.Option(None, "--host"),
+    port: int | None = typer.Option(None, "--port"),
+    with_worker: bool = typer.Option(False, "--with-worker", help="Also launch a worker process."),
+) -> None:
+    """Boot the API against a chosen model (fuzzy-pick with --select), optionally with a worker."""
+    run_serve(select=select, host=host, port=port, with_worker=with_worker)
+
+
 def main() -> None:
     app()
+
+
+if __name__ == "__main__":
+    main()
