@@ -172,6 +172,11 @@ open-rabbitmq: ## Open the RabbitMQ management UI in a browser (http://localhost
 open-prometheus: ## Open the Prometheus UI in a browser (http://localhost:9091)
 	@open http://localhost:9091
 
+.PHONY: asitop
+asitop: ## Install (uv tool) + run asitop, the Apple Silicon perf monitor (needs sudo; Ctrl-C to quit)
+	@uv tool install asitop
+	@sudo asitop
+
 .PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
 
 ml-backend-build: ## Build the Label Studio ML-backend Docker image
