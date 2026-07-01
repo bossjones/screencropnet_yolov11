@@ -17,6 +17,10 @@ RAW_DIR := scratch/datasets/twitter_screenshots_raw
 # so the converter pulls same-stem images from here. Harmless if absent.
 IMAGES_ROOT ?= $(RAW_DIR)/train_images
 
+# screencrop-demo (YOLO visual smoke test) knobs — override on the command line.
+DEMO_IMAGES ?= $(DATASET_DIR)/test/images
+DEMO_MODEL  ?= --latest
+
 # Append-only log for label-studio-local (gitignored via *.log). Query it later
 # when something looks wrong; `make label-studio-log-truncate` empties it.
 LABEL_STUDIO_LOG := $(CURDIR)/label-studio.log
@@ -106,6 +110,11 @@ test-e2e: ## Run the real-classifier e2e tests (-m e2e overrides the default "no
 
 demo: ## Run the full live-stack end-to-end demo with the real classifier (pass ARGS=--keep)
 	@uv run scripts/e2e_demo.py $(ARGS)
+
+.PHONY: screencrop-demo
+screencrop-demo: ## Run the screencrop-demo YOLO visual smoke test (no Docker/weights; override DEMO_MODEL=--select, DEMO_IMAGES=..., pass ARGS="-n 6 --no-open")
+	@echo "🚀 Running screencrop-demo YOLO smoke test"
+	@uv run screencrop-demo $(DEMO_IMAGES) $(DEMO_MODEL) $(ARGS)
 
 # ---- Composite & convenience targets ----
 
