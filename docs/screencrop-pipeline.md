@@ -12,6 +12,71 @@ consumes the queue, runs the classifier off the event loop, and writes
 `done`/`failed` back to Postgres. Postgres is the source of truth; Prometheus +
 Grafana provide advisory live metrics.
 
+For a hands-on, step-by-step walkthrough of the same stack (including the
+`serve`/`top`/`doctor` commands), see
+[running-the-classifier-service.md](running-the-classifier-service.md).
+
+## Architecture at a glance
+
+The torch-free API only enqueues; a separate worker does the inference. Postgres
+holds every job's state, and Prometheus/Grafana observe both processes.
+
+```mermaid
+graph LR
+    CLI["screencrop-cli"]
+    API["FastAPI :8000<br/>/classify /metrics"]
+    PG[("Postgres<br/>:5432")]
+    MQ{{"RabbitMQ<br/>screennet_inference_queue<br/>:5672"}}
+    W["Worker<br/>:8001 /metrics"]
+
+    CLI -->|WebP POST| API
+    API -->|write pending| PG
+    API -->|publish QueueMessage| MQ
+    MQ -->|consume| W
+    W -->|write result| PG
+
+    subgraph OBS["Observability"]
+        PROM["Prometheus :9091"]
+        GRAF["Grafana :3001"]
+    end
+
+    API -->|scrape| PROM
+    W -->|scrape| PROM
+    PROM -->|query| GRAF
+```
+
+A single job, from `submit` to `done`:
+
+```mermaid
+sequenceDiagram
+    participant CLI as screencrop-cli
+    participant API
+    participant PG as Postgres
+    participant MQ as RabbitMQ
+    participant W as Worker
+
+    CLI->>API: POST /classify (WebP)
+    API->>PG: INSERT job (pending)
+    API->>MQ: publish QueueMessage
+    API-->>CLI: 202 {job_id, batch_id}
+    MQ->>W: deliver message
+    W->>PG: UPDATE job (processing)
+    Note over W: run EfficientNet classifier<br/>off-thread via anyio.to_thread
+    W->>PG: UPDATE job (done)<br/>{is_twitter, pred_class, pred_prob}
+```
+
+Each job's lifecycle in the `classification_jobs` table:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: API creates job
+    pending --> processing: Worker picks up
+    processing --> done: Classification complete
+    processing --> failed: Error during inference
+    done --> [*]
+    failed --> [*]
+```
+
 ## Run order
 
 ```bash
@@ -131,6 +196,21 @@ The API and worker write structured logs to `SCREENCROPNET_LOGS_DIR`
 
 The provisioned Grafana dashboard (**ScreenCrop ingest/classify**) shows jobs by
 status, twitter-positive total, processed rate, and prediction-latency p95.
+
+```mermaid
+graph LR
+    API["API :8000<br/>/metrics"]
+    W["Worker :8001<br/>/metrics"]
+    PROM["Prometheus :9091"]
+    GRAF["Grafana :3001<br/>ScreenCrop dashboard"]
+
+    API -->|scrape| PROM
+    W -->|scrape| PROM
+    PROM -->|query| GRAF
+
+    METRICS["screencrop_jobs_submitted_total<br/>screencrop_jobs_processed_total<br/>screencrop_twitter_positive_total<br/>screencrop_jobs_in_progress<br/>screencrop_pred_latency_seconds"]
+    PROM -.->|stores| METRICS
+```
 
 ## Export semantics
 

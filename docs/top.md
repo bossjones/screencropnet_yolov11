@@ -18,6 +18,18 @@ make top REFRESH=2 BATCH=<batch>                # same, via make
 | `r` | Refresh now         |
 | `q` | Quit                |
 
+Each row's `status` column tracks where a job sits in its lifecycle:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: API creates job
+    pending --> processing: Worker picks up
+    processing --> done: Classification complete
+    processing --> failed: Error during inference
+    done --> [*]
+    failed --> [*]
+```
+
 ## What it shows
 
 - **Summary**: batch, total jobs, twitter-positive count, throughput/s, and a
@@ -37,3 +49,6 @@ interval — it never crashes out of the loop.
 The data layer (`build_snapshot` → `TopSnapshot` in
 `screencropnet_yolo.client.tui`) is pure and unit-tested without a terminal; the
 `TopApp` shell only wires it to widgets and a `set_interval` timer.
+
+For the full stack bring-up in context, see
+[running-the-classifier-service.md](running-the-classifier-service.md).
