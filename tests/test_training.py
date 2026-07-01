@@ -37,13 +37,14 @@ def create_mock_trainer(mocker: MockerFixture) -> MagicMock:
     mock_trainer.loss = mock_loss
     mock_trainer.loss_items = [0.1, 0.2, 0.3]  # box, cls, dfl
 
-    # Metrics attributes
-    mock_metrics = mocker.MagicMock()
-    mock_metrics.box.map50 = 0.85
-    mock_metrics.box.map = 0.75
-    mock_metrics.box.mp = 0.80  # precision
-    mock_metrics.box.mr = 0.70  # recall
-    mock_trainer.metrics = mock_metrics
+    # Metrics attributes. In ultralytics, trainer.metrics is a plain dict
+    # keyed by "metrics/<name>(B)", not a DetMetrics object with a .box attr.
+    mock_trainer.metrics = {
+        "metrics/precision(B)": 0.80,
+        "metrics/recall(B)": 0.70,
+        "metrics/mAP50(B)": 0.85,
+        "metrics/mAP50-95(B)": 0.75,
+    }
 
     # Optimizer attributes
     mock_trainer.optimizer.param_groups = [{"lr": 0.001}]
@@ -297,6 +298,30 @@ class TestMetricsLogger:
         assert metrics.recall == 0.70
         assert metrics.learning_rate == 0.001
 
+    def test_on_epoch_end_reads_metrics_from_dict(self, mocker: MockerFixture) -> None:
+        """trainer.metrics is a dict (not a DetMetrics .box object) in ultralytics.
+
+        Regression for `'dict' object has no attribute 'box'`: on_epoch_end must read
+        the `metrics/<name>(B)` keys instead of `.box.map50`.
+        """
+        history = TrainingHistory()
+        logger = MetricsLogger(history)
+        mock_trainer = create_mock_trainer(mocker)
+        mock_trainer.metrics = {
+            "metrics/precision(B)": 0.91,
+            "metrics/recall(B)": 0.88,
+            "metrics/mAP50(B)": 0.93,
+            "metrics/mAP50-95(B)": 0.77,
+        }
+
+        logger.on_epoch_end(mock_trainer)
+
+        metrics = history.metrics[0]
+        assert metrics.mAP50 == 0.93
+        assert metrics.mAP50_95 == 0.77
+        assert metrics.precision == 0.91
+        assert metrics.recall == 0.88
+
     def test_on_epoch_end_handles_none_loss(self, mocker: MockerFixture) -> None:
         """on_epoch_end() handles None loss gracefully."""
         mocker.patch("time.time", return_value=1100.0)
@@ -358,8 +383,8 @@ class TestMetricsLogger:
 
         mock_trainer = create_mock_trainer(mocker)
         # P=0.8, R=0.7 -> F1 = 2*0.8*0.7/(0.8+0.7) = 1.12/1.5 = 0.7466...
-        mock_trainer.metrics.box.mp = 0.8
-        mock_trainer.metrics.box.mr = 0.7
+        mock_trainer.metrics["metrics/precision(B)"] = 0.8
+        mock_trainer.metrics["metrics/recall(B)"] = 0.7
 
         logger.on_epoch_end(mock_trainer)
 
@@ -375,8 +400,8 @@ class TestMetricsLogger:
         logger.epoch_start_time = 1000.0
 
         mock_trainer = create_mock_trainer(mocker)
-        mock_trainer.metrics.box.mp = 0.0
-        mock_trainer.metrics.box.mr = 0.0
+        mock_trainer.metrics["metrics/precision(B)"] = 0.0
+        mock_trainer.metrics["metrics/recall(B)"] = 0.0
 
         logger.on_epoch_end(mock_trainer)
 
@@ -414,14 +439,14 @@ class TestEarlyStopping:
         mock_trainer = create_mock_trainer(mocker)
 
         # First epoch
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
         assert es.counter == 0
         assert es.best_value == 0.5
         assert es.should_stop is False
 
         # Improvement
-        mock_trainer.metrics.box.map = 0.6
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.6
         es.on_epoch_end(mock_trainer)
         assert es.counter == 0
         assert es.best_value == 0.6
@@ -432,15 +457,15 @@ class TestEarlyStopping:
         mock_trainer = create_mock_trainer(mocker)
 
         # Set initial best
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
 
         # No improvement
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
         assert es.counter == 1
 
-        mock_trainer.metrics.box.map = 0.49
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.49
         es.on_epoch_end(mock_trainer)
         assert es.counter == 2
 
@@ -450,12 +475,12 @@ class TestEarlyStopping:
         mock_trainer = create_mock_trainer(mocker)
 
         # Set initial best
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
 
         # No improvement for patience epochs
         for _ in range(3):
-            mock_trainer.metrics.box.map = 0.5
+            mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
             es.on_epoch_end(mock_trainer)
 
         assert es.counter == 3
@@ -468,18 +493,18 @@ class TestEarlyStopping:
         mock_trainer = create_mock_trainer(mocker)
 
         # Initial value
-        mock_trainer.metrics.box.map50 = 0.5
+        mock_trainer.metrics["metrics/mAP50(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
         assert es.best_value == 0.5
 
         # Lower value is improvement
-        mock_trainer.metrics.box.map50 = 0.4
+        mock_trainer.metrics["metrics/mAP50(B)"] = 0.4
         es.on_epoch_end(mock_trainer)
         assert es.counter == 0
         assert es.best_value == 0.4
 
         # Higher value is not improvement
-        mock_trainer.metrics.box.map50 = 0.45
+        mock_trainer.metrics["metrics/mAP50(B)"] = 0.45
         es.on_epoch_end(mock_trainer)
         assert es.counter == 1
 
@@ -489,16 +514,16 @@ class TestEarlyStopping:
         mock_trainer = create_mock_trainer(mocker)
 
         # Initial
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         es.on_epoch_end(mock_trainer)
 
         # Small improvement below threshold
-        mock_trainer.metrics.box.map = 0.505
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.505
         es.on_epoch_end(mock_trainer)
         assert es.counter == 1  # Not enough improvement
 
         # Sufficient improvement
-        mock_trainer.metrics.box.map = 0.52
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.52
         es.on_epoch_end(mock_trainer)
         assert es.counter == 0
         assert es.best_value == 0.52
@@ -541,50 +566,73 @@ class TestCheckpointCallback:
         assert cb.best_map == 0.0
 
     def test_on_epoch_end_saves_at_interval(self, tmp_path: Path, mocker: MockerFixture) -> None:
-        """Checkpoints saved at periodic intervals."""
-        cb = CheckpointCallback(str(tmp_path), save_period=5, save_best=False)
+        """Checkpoints are copied from trainer.last at periodic intervals."""
+        save_dir = tmp_path / "out"
+        cb = CheckpointCallback(str(save_dir), save_period=5, save_best=False)
         mock_trainer = create_mock_trainer(mocker)
+        # ultralytics writes its own weights/last.pt before on_fit_epoch_end fires.
+        last = tmp_path / "last.pt"
+        last.write_bytes(b"checkpoint-bytes")
+        mock_trainer.last = last
 
-        # Epoch 4 (0-indexed) -> epoch 5, should save periodic checkpoint
+        # Epoch 4 (0-indexed) -> epoch 5, should copy periodic checkpoint
         mock_trainer.epoch = 4
         cb.on_epoch_end(mock_trainer)
-        mock_trainer.save.assert_called_once()
+        assert (save_dir / "checkpoint_epoch_5.pt").read_bytes() == b"checkpoint-bytes"
 
         # Epoch 5 (0-indexed) -> epoch 6, should not save
-        mock_trainer.save.reset_mock()
         mock_trainer.epoch = 5
         cb.on_epoch_end(mock_trainer)
-        mock_trainer.save.assert_not_called()
+        assert not (save_dir / "checkpoint_epoch_6.pt").exists()
 
         # Epoch 9 (0-indexed) -> epoch 10, should save
         mock_trainer.epoch = 9
         cb.on_epoch_end(mock_trainer)
-        mock_trainer.save.assert_called_once()
+        assert (save_dir / "checkpoint_epoch_10.pt").exists()
 
     def test_on_epoch_end_saves_best_model(self, tmp_path: Path, mocker: MockerFixture) -> None:
-        """Best model is saved when mAP improves."""
-        cb = CheckpointCallback(str(tmp_path), save_period=100, save_best=True)
+        """Best model is copied from trainer.last when mAP improves."""
+        save_dir = tmp_path / "out"
+        cb = CheckpointCallback(str(save_dir), save_period=100, save_best=True)
         mock_trainer = create_mock_trainer(mocker)
         mock_trainer.epoch = 0
+        last = tmp_path / "last.pt"
+        last.write_bytes(b"v1")
+        mock_trainer.last = last
 
         # First epoch, should save as best
-        mock_trainer.metrics.box.map = 0.5
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.5
         cb.on_epoch_end(mock_trainer)
         assert cb.best_map == 0.5
-        assert mock_trainer.save.call_count == 1
+        assert (save_dir / "best.pt").read_bytes() == b"v1"
 
-        # Better mAP, should save again
-        mock_trainer.save.reset_mock()
-        mock_trainer.metrics.box.map = 0.6
+        # Better mAP, should overwrite best with the latest checkpoint bytes
+        last.write_bytes(b"v2")
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.6
         cb.on_epoch_end(mock_trainer)
         assert cb.best_map == 0.6
-        assert mock_trainer.save.call_count == 1
+        assert (save_dir / "best.pt").read_bytes() == b"v2"
 
-        # Worse mAP, should not save
-        mock_trainer.save.reset_mock()
-        mock_trainer.metrics.box.map = 0.55
+        # Worse mAP, should not update best
+        last.write_bytes(b"v3")
+        mock_trainer.metrics["metrics/mAP50-95(B)"] = 0.55
         cb.on_epoch_end(mock_trainer)
-        assert mock_trainer.save.call_count == 0
+        assert cb.best_map == 0.6
+        assert (save_dir / "best.pt").read_bytes() == b"v2"
+
+    def test_on_epoch_end_skips_when_no_checkpoint(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """Gracefully no-ops when ultralytics has not written a checkpoint yet."""
+        save_dir = tmp_path / "out"
+        cb = CheckpointCallback(str(save_dir), save_period=1, save_best=True)
+        mock_trainer = create_mock_trainer(mocker)
+        mock_trainer.epoch = 0
+        mock_trainer.last = tmp_path / "missing.pt"  # does not exist
+
+        cb.on_epoch_end(mock_trainer)
+
+        assert list(save_dir.iterdir()) == []
 
     def test_on_epoch_end_handles_missing_metrics(
         self, tmp_path: Path, mocker: MockerFixture
@@ -842,7 +890,9 @@ class TestTrainer:
         assert "on_train_start" in call_args
         assert "on_train_end" in call_args
         assert "on_train_epoch_start" in call_args
-        assert "on_train_epoch_end" in call_args
+        # on_epoch_end binds to on_fit_epoch_end (fires after validation, when
+        # trainer.metrics is populated) rather than on_train_epoch_end.
+        assert "on_fit_epoch_end" in call_args
         assert "on_val_start" in call_args
         assert "on_val_end" in call_args
 
@@ -891,6 +941,30 @@ class TestTrainer:
         result = trainer.train()
 
         assert isinstance(result, TrainingHistory)
+
+    def test_train_captures_real_checkpoint_path(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """train() records the path ultralytics actually saved weights to.
+
+        Ultralytics resolves a relative project under RUNS_DIR, so the checkpoint
+        location can't be guessed from output_dir; it must be read from the trainer.
+        """
+        mock_model = create_mock_yolo_model(mocker)
+        mocker.patch("screencropnet_yolo.training.TensorBoardCallback")
+        mocker.patch("time.time", return_value=1000.0)
+
+        weights = tmp_path / "elsewhere" / "train" / "weights"
+        weights.mkdir(parents=True)
+        best = weights / "best.pt"
+        best.write_bytes(b"trained")
+        mock_model.trainer.best = best
+        mock_model.trainer.last = weights / "last.pt"
+
+        trainer = Trainer(mock_model, "data.yaml", str(tmp_path), {})
+        history = trainer.train()
+
+        assert history.best_model_path == str(best)
 
     def test_train_handles_exception(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """train() logs and re-raises exceptions."""

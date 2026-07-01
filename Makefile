@@ -13,6 +13,13 @@ PYTORCH_LAB ?= /Users/bossjones/dev/bossjones/pytorch-lab
 DATASET_DIR ?= datasets/twitter_screenshots_localization_dataset
 LS_EXPORT ?= ./ls_export.zip
 RAW_DIR := scratch/datasets/twitter_screenshots_raw
+# Fallback image source for labeling-export: local-files exports are labels-only,
+# so the converter pulls same-stem images from here. Harmless if absent.
+IMAGES_ROOT ?= $(RAW_DIR)/train_images
+
+# screencrop-demo (YOLO visual smoke test) knobs — override on the command line.
+DEMO_IMAGES ?= $(DATASET_DIR)/test/images
+DEMO_MODEL  ?= --latest
 
 # Append-only log for label-studio-local (gitignored via *.log). Query it later
 # when something looks wrong; `make label-studio-log-truncate` empties it.
@@ -104,6 +111,11 @@ test-e2e: ## Run the real-classifier e2e tests (-m e2e overrides the default "no
 demo: ## Run the full live-stack end-to-end demo with the real classifier (pass ARGS=--keep)
 	@uv run scripts/e2e_demo.py $(ARGS)
 
+.PHONY: screencrop-demo
+screencrop-demo: ## Run the screencrop-demo YOLO visual smoke test (no Docker/weights; override DEMO_MODEL=--select, DEMO_IMAGES=..., pass ARGS="-n 6 --no-open")
+	@echo "🚀 Running screencrop-demo YOLO smoke test"
+	@uv run screencrop-demo $(DEMO_IMAGES) $(DEMO_MODEL) $(ARGS)
+
 # ---- Composite & convenience targets ----
 
 .PHONY: wait-healthy stack-up stack-down test-all migrate-revision migrate-down migrate-current migrate-history logs-api logs-worker open-grafana open-rabbitmq open-prometheus
@@ -159,6 +171,11 @@ open-rabbitmq: ## Open the RabbitMQ management UI in a browser (http://localhost
 
 open-prometheus: ## Open the Prometheus UI in a browser (http://localhost:9091)
 	@open http://localhost:9091
+
+.PHONY: asitop
+asitop: ## Install (uv tool) + run asitop, the Apple Silicon perf monitor (needs sudo; Ctrl-C to quit)
+	@uv tool install asitop
+	@sudo asitop
 
 .PHONY: ml-backend-build ml-backend-up ml-backend-up-d ml-backend-down
 
@@ -246,6 +263,7 @@ labeling-export: ## convert a Label Studio export (LS_EXPORT) into DATASET_DIR (
 	uv run scripts/ls_yolo_export_to_dataset.py \
 	    --export $(LS_EXPORT) \
 	    --out $(DATASET_DIR)/ \
+	    --images-root $(IMAGES_ROOT) \
 	    --val-ratio 0.2 --test-ratio 0.1 --seed 42
 
 dataset-validate: ## validate the canonical dataset without training (guide step 8)

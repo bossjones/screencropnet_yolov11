@@ -125,6 +125,7 @@ def create_mock_training_history(mocker: MockerFixture) -> MagicMock:
     mock_history.best_mAP50 = 0.8
     mock_history.best_epoch = 1
     mock_history.training_time = 100.0
+    mock_history.best_model_path = ""
     return mock_history
 
 
@@ -982,6 +983,49 @@ class TestMain:
         result = main()
 
         assert result == 0
+
+    def test_evaluates_captured_best_model_path(
+        self, tmp_path: Path, mocker: MockerFixture
+    ) -> None:
+        """main() evaluates the path the trainer captured, not a guessed one."""
+        config = create_sample_config()
+        config["logging"]["output_dir"] = str(tmp_path)
+
+        mocker.patch(
+            "screencropnet_yolo.train.parse_args",
+            return_value=create_mock_args(config=str(tmp_path / "config.yaml")),
+        )
+        mocker.patch("screencropnet_yolo.train.load_config", return_value=config)
+        mocker.patch("screencropnet_yolo.train.merge_config_with_args", return_value=config)
+        mocker.patch("screencropnet_yolo.train.setup_logging")
+        mocker.patch("screencropnet_yolo.train.load_dataset_from_roboflow", return_value="/data")
+        mocker.patch("screencropnet_yolo.train.split_dataset_if_needed")
+        mocker.patch("screencropnet_yolo.train.validate_dataset", return_value=True)
+
+        # The real weights live somewhere ultralytics chose, NOT output_dir/train/weights.
+        real_weights = tmp_path / "detect" / "runs" / "train" / "weights"
+        real_weights.mkdir(parents=True)
+        best = real_weights / "best.pt"
+        best.touch()
+        mock_history = create_mock_training_history(mocker)
+        mock_history.best_model_path = str(best)
+        mocker.patch("screencropnet_yolo.train.train_model", return_value=mock_history)
+
+        mock_eval = mocker.patch(
+            "screencropnet_yolo.train.evaluate_model",
+            return_value=create_mock_evaluation_results(mocker),
+        )
+        mock_export = mocker.patch("screencropnet_yolo.train.export_model")
+        mocker.patch("screencropnet_yolo.train.create_visualizations")
+        mocker.patch("screencropnet_yolo.train.run_ablation_study")
+
+        from screencropnet_yolo.train import main
+
+        result = main()
+
+        assert result == 0
+        assert mock_eval.call_args[0][1] == str(best)
+        assert mock_export.call_args[0][1] == str(best)
 
     def test_validate_only_exits_early(self, tmp_path: Path, mocker: MockerFixture) -> None:
         """--validate-only exits after validation."""

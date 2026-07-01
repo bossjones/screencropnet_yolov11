@@ -39,20 +39,20 @@ class Detection:
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
-            "class_id": self.class_id,
+            "class_id": int(self.class_id),
             "class_name": self.class_name,
-            "confidence": self.confidence,
+            "confidence": float(self.confidence),
             "bbox": {
-                "x1": self.bbox[0],
-                "y1": self.bbox[1],
-                "x2": self.bbox[2],
-                "y2": self.bbox[3],
+                "x1": float(self.bbox[0]),
+                "y1": float(self.bbox[1]),
+                "x2": float(self.bbox[2]),
+                "y2": float(self.bbox[3]),
             },
             "bbox_normalized": {
-                "x1": self.bbox_normalized[0],
-                "y1": self.bbox_normalized[1],
-                "x2": self.bbox_normalized[2],
-                "y2": self.bbox_normalized[3],
+                "x1": float(self.bbox_normalized[0]),
+                "y1": float(self.bbox_normalized[1]),
+                "x2": float(self.bbox_normalized[2]),
+                "y2": float(self.bbox_normalized[3]),
             }
             if self.bbox_normalized
             else None,
@@ -373,7 +373,7 @@ class InferencePipeline:
             frame_results.append(result)
 
             # Draw annotations on frame
-            annotated = self._draw_detections(frame, result)  # pyright: ignore[reportArgumentType]
+            annotated = self.draw_detections(frame, result)  # pyright: ignore[reportArgumentType]
 
             # Save frame
             if writer:
@@ -401,7 +401,7 @@ class InferencePipeline:
 
         return frame_results
 
-    def _draw_detections(
+    def draw_detections(
         self,
         image: npt.NDArray[np.uint8],
         result: InferenceResult,
@@ -511,16 +511,16 @@ class ResultExporter:
             image_id = Path(result.image_path).stem
 
             for det in result.detections:
-                x1, y1, x2, y2 = det.bbox
+                x1, y1, x2, y2 = (float(c) for c in det.bbox)
                 width = x2 - x1
                 height = y2 - y1
 
                 coco_results.append(
                     {
                         "image_id": image_id,
-                        "category_id": det.class_id + 1,  # COCO uses 1-indexed
+                        "category_id": int(det.class_id) + 1,  # COCO uses 1-indexed
                         "bbox": [x1, y1, width, height],
-                        "score": det.confidence,
+                        "score": float(det.confidence),
                     }
                 )
 

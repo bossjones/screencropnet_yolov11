@@ -530,6 +530,30 @@ class TestEvaluator:
         assert evaluator.class_names == ["class_a", "class_b"]
         assert evaluator.device == "cuda:0"
 
+    def test_init_resolves_auto_device(self, mocker: MockerFixture) -> None:
+        """'auto' is resolved to a concrete device that model.val() accepts."""
+        mock_model = create_mock_yolo(mocker)
+        mock_results = create_mock_validation_results(mocker)
+        mock_model.val.return_value = mock_results
+        # Force CPU-only resolution: no CUDA, and no mps attribute on backends.
+        mocker.patch("screencropnet_yolo.model.torch.cuda.is_available", return_value=False)
+        mocker.patch(
+            "screencropnet_yolo.model.torch.backends",
+            mocker.MagicMock(spec=["cuda"]),
+        )
+
+        evaluator = Evaluator(
+            model=mock_model,
+            data_yaml="/path/to/data.yaml",
+            class_names=["class_a"],
+            device="auto",
+        )
+
+        assert evaluator.device == "cpu"
+
+        evaluator.evaluate(verbose=False)
+        assert mock_model.val.call_args.kwargs["device"] == "cpu"
+
     def test_evaluate(self, mocker: MockerFixture) -> None:
         """evaluate extracts metrics from model.val() results."""
         mock_model = create_mock_yolo(mocker)

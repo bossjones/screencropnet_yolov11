@@ -27,7 +27,7 @@ flowchart TD
     Trainer --> History[TrainingHistory]
 
     History --> Eval[Evaluator -> EvaluationResults]
-    Eval --> Export[ModelExporter -> .pt / .onnx]
+    Eval --> Export[ModelExporter -> .pt first, then .onnx etc. fail-soft]
     History --> Viz[Visualizers -> curves, matrix, dashboard]
 ```
 
@@ -42,7 +42,9 @@ flowchart TD
 | `training.py` | Training loop, metrics history, and a callback system (early stopping, checkpoints, TensorBoard, W&B) | `Trainer`, `TrainingHistory`, `TrainingMetrics`, callback classes, `create_ablation_study` |
 | `evaluation.py` | Metrics on val/test splits and analysis helpers | `Evaluator`, `EvaluationResults`, `ClassMetrics`, `calculate_iou`, `find_optimal_confidence`, `benchmark_model` |
 | `inference.py` | Runtime prediction on images, batches, and video, plus result export | `InferencePipeline`, `InferenceResult`, `Detection`, `ResultExporter`, `apply_nms` |
+| `demo.py` | `screencrop-demo` CLI: async inference on a random image sample into a contact-sheet montage; `fzf` model picker (`--select`) via `pyfzf` | `main`, `run_demo`, `annotate_one`, `resolve_model`, `discover_models`, `select_model`, `build_contact_sheet` |
 | `visualization.py` | Matplotlib/seaborn plot helpers used by training and evaluation | `TrainingVisualizer`, `ConfusionMatrixVisualizer`, `DetectionVisualizer`, `DatasetVisualizer`, `ResultsDashboard` |
+| `output.py` | Pure presentation helpers for the CLI (run banner, artifacts table, byte/color formatting); no Ultralytics/torch imports, raw ANSI instead of `rich` | `format_run_summary`, `format_artifacts_table`, `human_size`, `colorize`, `Color`, `Artifact`, `ColorFormatter` |
 | `config/config.yaml` | Default training configuration consumed by `train.py --config` | — |
 
 ## Configuration model
@@ -63,6 +65,21 @@ Ultralytics. This keeps Ultralytics' large keyword surface in one place.
 logging, early stopping, checkpointing, and (when enabled in config) TensorBoard
 and Weights & Biases. Add your own with `Trainer.add_callback(...)` before
 calling `train()`.
+
+## Console output
+
+`output.py` keeps all user-facing formatting separate from the training path.
+`main` prints a `RUN CONFIGURATION` banner (resolved device, epochs, dataset,
+output/weights dirs, export formats) before training and an `ARTIFACTS` table
+(paths, human-readable sizes, best epoch/mAP) after export. Color is opt-in via
+`--color` and auto-disabled when stdout is not a TTY or `NO_COLOR` is set; the
+file log stays plain. During training the metrics logger renders `Epoch N/TOTAL`
+and the post-training validation pass is labeled `(final val)`.
+
+Export is ordered: the `pytorch` format runs first and copies the real
+`train/weights/best.pt` (threaded in via `ModelExporter(source_weights=...)`);
+any other format that fails logs a warning and is skipped rather than aborting
+the run.
 
 ## Output layout
 

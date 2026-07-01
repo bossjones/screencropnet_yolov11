@@ -588,7 +588,7 @@ class TestInferencePipeline:
         mock_writer.release.assert_called_once()
 
     def test_draw_detections(self, mocker: MockerFixture) -> None:
-        """_draw_detections annotates image with boxes."""
+        """draw_detections annotates image with boxes."""
         mock_model = create_mock_yolo_model(mocker)
         mocker.patch("screencropnet_yolo.inference.YOLO", return_value=mock_model)
 
@@ -601,7 +601,7 @@ class TestInferencePipeline:
         det = create_detection()
         result = create_inference_result(detections=[det])
 
-        annotated = pipeline._draw_detections(image, result)
+        annotated = pipeline.draw_detections(image, result)
 
         assert annotated.shape == image.shape
         # Original image should not be modified
@@ -648,6 +648,36 @@ class TestResultExporter:
         assert data["num_images"] == 1
         assert data["total_detections"] == 1
         assert len(data["results"]) == 1
+
+    def test_to_json_serializes_numpy_float_bbox(self, tmp_path: Path) -> None:
+        """Real predictions carry numpy float32 bbox coords; to_json must serialize them."""
+        det = create_detection(
+            confidence=np.array([0.87], dtype=np.float32)[0],
+            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),
+            bbox_normalized=tuple(np.array([0.1, 0.2, 0.3, 0.4], dtype=np.float32)),
+        )
+        result = create_inference_result(detections=[det])
+
+        output_path = str(tmp_path / "np.json")
+        ResultExporter.to_json(result, output_path)
+
+        data = json.loads(Path(output_path).read_text())
+        bbox = data["results"][0]["detections"][0]["bbox"]
+        assert bbox["x1"] == 10.0
+
+    def test_to_coco_serializes_numpy_float_bbox(self, tmp_path: Path) -> None:
+        """to_coco must serialize numpy float32 coords/scores from real predictions."""
+        det = create_detection(
+            confidence=np.array([0.87], dtype=np.float32)[0],
+            bbox=tuple(np.array([10.0, 20.0, 110.0, 120.0], dtype=np.float32)),
+        )
+        result = create_inference_result(detections=[det])
+
+        output_path = str(tmp_path / "coco.json")
+        ResultExporter.to_coco([result], output_path, ["test_class"])
+
+        data = json.loads(Path(output_path).read_text())
+        assert data[0]["bbox"][2] == 100.0  # width = x2 - x1
 
     def test_to_json_multiple_results(self, tmp_path: Path) -> None:
         """to_json exports list of results."""

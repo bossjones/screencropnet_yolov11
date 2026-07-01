@@ -34,7 +34,19 @@ from .dataset_utils import (
     display_dataset_stats,
 )
 from .evaluation import EvaluationResults, Evaluator
-from .model import AugmentationConfig, ModelConfig, ModelExporter, ModelFactory
+from .model import (
+    AugmentationConfig,
+    ModelConfig,
+    ModelExporter,
+    ModelFactory,
+    resolve_device,
+)
+from .output import (
+    Artifact,
+    ColorFormatter,
+    format_artifacts_table,
+    format_run_summary,
+)
 from .training import Trainer, TrainingHistory, create_ablation_study
 from .visualization import (
     ConfusionMatrixVisualizer,
@@ -44,18 +56,29 @@ from .visualization import (
 
 
 # Configure logging
-def setup_logging(output_dir: str, log_level: str = "INFO") -> None:
-    """Configure logging to file and console."""
+def setup_logging(output_dir: str, log_level: str = "INFO", color: bool = False) -> None:
+    """Configure logging to file and console.
+
+    The console stream uses :class:`ColorFormatter` (colored only when ``color`` is
+    resolved True); the file handler always stays plain so the logfile holds no ANSI.
+    """
     log_dir = Path(output_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
 
     log_file = log_dir / f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
+    fmt = "%(asctime)s | %(levelname)8s | %(name)s | %(message)s"
+    datefmt = "%Y-%m-%d %H:%M:%S"
+
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setFormatter(logging.Formatter(fmt, datefmt=datefmt))
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(ColorFormatter(fmt, datefmt=datefmt, enabled=color))
+
     logging.basicConfig(
         level=getattr(logging, log_level.upper()),
-        format="%(asctime)s | %(levelname)8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
+        handlers=[file_handler, stream_handler],
     )
 
     # Reduce verbosity of some loggers
@@ -293,7 +316,9 @@ def export_model(config: dict[str, Any], model_path: str, output_dir: str) -> di
 
     model = YOLO(model_path)
 
-    exporter = ModelExporter(model, output_dir)
+    # model_path is the real best checkpoint resolved in main(); pass it so the
+    # pytorch export reports/copies that file instead of a guessed {output_dir}/best.pt.
+    exporter = ModelExporter(model, output_dir, source_weights=model_path)
 
     export_config = config.get("export", {})
     formats = export_config.get("formats", ["pytorch", "onnx"])
@@ -310,6 +335,51 @@ def export_model(config: dict[str, Any], model_path: str, output_dir: str) -> di
 
     logger.info(f"Exported models: {list(exported.keys())}")
     return exported
+
+
+def _artifact(label: str, path: Path) -> Artifact:
+    """Build one artifacts-table row, computing size (recursive for directories)."""
+    if not path.exists():
+        return Artifact(label=label, path=None, size=None)
+    if path.is_dir():
+        size = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+    else:
+        size = path.stat().st_size
+    return Artifact(label=label, path=str(path.resolve()), size=size)
+
+
+def _build_artifacts_table(
+    output_dir: str,
+    exported: dict[str, str],
+    history: TrainingHistory,
+    enabled: bool = False,
+) -> str:
+    """Assemble the closing artifacts table from the produced outputs.
+
+    The exported best ``.pt`` (what users consume) leads. Note: the
+    ``{output_dir}/weights/best.pt`` copy written by ``CheckpointCallback`` is
+    redundant with the exported path and is intentionally not surfaced here.
+    """
+    base = Path(output_dir)
+    rows: list[Artifact] = []
+
+    pt_path = exported.get("pytorch")
+    rows.append(_artifact("best.pt", Path(pt_path) if pt_path else base / "_missing_.pt"))
+
+    onnx_path = exported.get("onnx")
+    if onnx_path:
+        rows.append(_artifact("best.onnx", Path(onnx_path)))
+
+    rows.append(_artifact("training_history.json", base / "training_history.json"))
+    rows.append(_artifact("evaluation_results.json", base / "evaluation_results.json"))
+    rows.append(_artifact("visualizations/", base / "visualizations"))
+
+    return format_artifacts_table(
+        rows,
+        best_epoch=history.best_epoch,
+        best_map=history.best_mAP50_95,
+        enabled=enabled,
+    )
 
 
 def create_visualizations(
@@ -439,6 +509,12 @@ Examples:
 
     # Output
     parser.add_argument("--output", "-o", type=str, help="Output directory")
+    parser.add_argument(
+        "--color",
+        action="store_true",
+        help="Colorize banners/summary/log levels (auto-disabled when stdout is not a "
+        "TTY or NO_COLOR is set)",
+    )
 
     # Resume training
     parser.add_argument("--resume", "-r", type=str, help="Path to checkpoint to resume from")
@@ -465,8 +541,15 @@ def main() -> int:
     config = load_config(args.config)
     config = merge_config_with_args(config, args)
 
+    # Resolve color: opt-in flag, but never emit ANSI to a pipe/file or under NO_COLOR.
+    color = (
+        bool(getattr(args, "color", False)) and sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    )
+
     # Setup logging
-    setup_logging(config["logging"]["output_dir"], config["logging"].get("level", "INFO"))
+    setup_logging(
+        config["logging"]["output_dir"], config["logging"].get("level", "INFO"), color=color
+    )
 
     logger.info(BANNER)
     logger.info(f"Config: {args.config}")
@@ -500,25 +583,55 @@ def main() -> int:
             export_model(config, args.export_only, output_dir)
             return 0
 
+        # Run-configuration banner: anchor the run before the training stream starts.
+        export_formats = config.get("export", {}).get("formats", ["pytorch", "onnx"])
+        weights_dir = Path(output_dir) / "train" / "weights"
+        logger.info(
+            "\n"
+            + format_run_summary(
+                model_size=config["model"]["size"],
+                arch=config["model"].get("weights") or f"YOLO ({config['model']['size']})",
+                device=str(resolve_device(config["device"]["type"])),
+                epochs=config["training"]["epochs"],
+                batch=config["training"]["batch_size"],
+                imgsz=config["training"]["image_size"],
+                dataset_path=config["dataset"]["path"],
+                output_dir=output_dir,
+                weights_dir=str(weights_dir),
+                best_pt=str(weights_dir / "best.pt"),
+                export_formats=export_formats,
+                enabled=color,
+            )
+        )
+
         # Train model
         history = train_model(config, args.resume)
 
-        # Find best model
-        best_model = Path(output_dir) / "train" / "weights" / "best.pt"
-        if not best_model.exists():
-            best_model = Path(output_dir) / "train" / "weights" / "last.pt"
+        # Find best model: prefer the path the trainer captured (ultralytics chooses
+        # the run dir), falling back to the conventional location.
+        best_model_path = getattr(history, "best_model_path", "")
+        best_model = (
+            Path(best_model_path) if isinstance(best_model_path, str) and best_model_path else None
+        )
+        if best_model is None or not best_model.exists():
+            best_model = Path(output_dir) / "train" / "weights" / "best.pt"
+            if not best_model.exists():
+                best_model = Path(output_dir) / "train" / "weights" / "last.pt"
 
         # Evaluate
         results = evaluate_model(config, str(best_model), output_dir)
 
-        # Export
-        export_model(config, str(best_model), output_dir)
+        # Export (pytorch first, ONNX/others fail soft)
+        exported = export_model(config, str(best_model), output_dir)
 
         # Create visualizations
         create_visualizations(config, history, results, output_dir)
 
         # Run ablation study if configured
         run_ablation_study(config)
+
+        # Artifacts summary: the real paths + sizes of what the operator consumes.
+        logger.info("\n" + _build_artifacts_table(output_dir, exported, history, enabled=color))
 
         logger.info("=" * 60)
         logger.info("TRAINING COMPLETE")

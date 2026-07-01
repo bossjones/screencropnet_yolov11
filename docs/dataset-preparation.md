@@ -176,3 +176,6 @@ so the trainer needs no flags:
 ```bash
 uv run python -m screencropnet_yolo.train   # or: make train
 ```
+
+> All path arguments to the `scripts/` tools expand `~` and `$VAR`, so you can pass
+> e.g. `--export ~/data/$PROJECT/ls_export.zip` instead of a hardcoded absolute path.

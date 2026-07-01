@@ -45,11 +45,15 @@ dependencies = [
     "fastapi>=0.137.1",
     "httpx>=0.28.1",
     "matplotlib>=3.10.8",
+    "onnx>=1.22.0",
+    "onnxruntime>=1.27.0",
+    "onnxslim>=0.1.94",
     "opencv-python>=4.12.0.88",
     "pillow>=12.0.0",
     "prometheus-client>=0.25.0",
     "pydantic>=2",
     "pydantic-settings>=2",
+    "pyfzf>=0.3.1",
     "python-multipart>=0.0.32",
     "pyyaml>=6.0.3",
     "seaborn>=0.13.2",
@@ -97,6 +101,7 @@ worker = [
 screencropnet_yolo = "screencropnet_yolo:main"
 screencrop-cli = "screencropnet_yolo.client.cli:main"
 screencrop-worker = "screencropnet_yolo.server.worker:main"
+screencrop-demo = "screencropnet_yolo.demo:main"
 
 
 # ---- Build system ----

@@ -28,6 +28,7 @@ uv run python -m screencropnet_yolo.train [options]
 | `--model-size` | `-m` | Model size: `n`, `s`, `m`, `l`, `x` |
 | `--device` | | Device: `auto`, `cpu`, `cuda`, `0`, `1`, … |
 | `--output` | `-o` | Output directory |
+| `--color` | | Colorize the run banner, artifacts table, and log levels (auto-disabled when stdout is not a TTY or `NO_COLOR` is set) |
 | `--resume` | `-r` | Resume from a checkpoint path |
 | `--validate-only` | | Validate the dataset, then exit |
 | `--eval-only MODEL_PATH` | | Evaluate the given checkpoint, then exit |

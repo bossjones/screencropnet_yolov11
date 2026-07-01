@@ -17,6 +17,10 @@ The split dirs (``train``/``val``/``test``) under ``--out`` are cleared before
 copying, so re-exporting into an existing dataset folder replaces it cleanly
 rather than merging stale files across runs.
 
+When images are served from Label Studio local storage, the export is
+labels-only (an empty ``images/`` dir). Pass ``--images-root`` at the staged
+source images so each label is paired with its same-stem image from there.
+
 Output layout::
 
     <out>/
@@ -61,13 +65,26 @@ def _find_dir(root: Path, name: str) -> Path:
     raise FileNotFoundError(f"no '{name}/' dir found inside the export")
 
 
-def _pair_images_with_labels(images_dir: Path, labels_dir: Path) -> list[tuple[Path, Path]]:
+def _build_images_by_stem(*dirs: Path | None) -> dict[str, Path]:
+    """Map image stem → path across ``dirs``; earlier dirs win on stem conflicts.
+
+    Lets the export's own ``images/`` take precedence over a fallback
+    ``--images-root`` while still filling gaps from it.
+    """
+    by_stem: dict[str, Path] = {}
+    for directory in dirs:
+        if directory is None or not directory.is_dir():
+            continue
+        for p in directory.iterdir():
+            if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES:
+                by_stem.setdefault(p.stem, p)
+    return by_stem
+
+
+def _pair_images_with_labels(
+    images_by_stem: dict[str, Path], labels_dir: Path
+) -> list[tuple[Path, Path]]:
     """Pair every label ``.txt`` with its same-stem image. Unmatched are dropped."""
-    images_by_stem = {
-        p.stem: p
-        for p in images_dir.iterdir()
-        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
-    }
     pairs: list[tuple[Path, Path]] = []
     for label in sorted(labels_dir.glob("*.txt")):
         image = images_by_stem.get(label.stem)
@@ -131,6 +148,7 @@ def build_dataset(
     val_ratio: float = 0.2,
     test_ratio: float = 0.0,
     seed: int = 42,
+    images_root: Path | None = None,
 ) -> dict[str, Any]:
     """Unpack the export, split, copy pairs, and write ``data.yaml``.
 
@@ -138,9 +156,14 @@ def build_dataset(
     The ``train``/``val``/``test`` dirs under ``out_dir`` are cleared first, so
     re-running into an existing dataset folder replaces it cleanly.
 
+    When ``images_root`` is given, labels whose image is absent from the export's
+    ``images/`` dir are paired against same-stem images found there. This is the
+    local-files path: Label Studio serves images by reference, so its export is
+    labels-only and the bytes live in the staged source dir instead.
+
     Raises:
         ValueError: if ``val_ratio``/``test_ratio`` are negative, their sum
-            exceeds 1.0, or the export contains no image/label pairs.
+            exceeds 1.0, or no image/label pairs could be formed.
     """
     if val_ratio < 0.0 or test_ratio < 0.0 or val_ratio + test_ratio > 1.0:
         raise ValueError(
@@ -155,11 +178,23 @@ def build_dataset(
         with zipfile.ZipFile(export_zip) as zf:
             zf.extractall(tmp_path)
 
-        images_dir = _find_dir(tmp_path, "images")
         labels_dir = _find_dir(tmp_path, "labels")
-        pairs = _pair_images_with_labels(images_dir, labels_dir)
+        try:
+            zip_images_dir: Path | None = _find_dir(tmp_path, "images")
+        except FileNotFoundError:
+            if images_root is None:
+                raise
+            zip_images_dir = None
+
+        images_by_stem = _build_images_by_stem(zip_images_dir, images_root)
+        pairs = _pair_images_with_labels(images_by_stem, labels_dir)
         if not pairs:
-            raise ValueError("export contained no image/label pairs")
+            raise ValueError(
+                "export contained no image/label pairs. A Label Studio local-files "
+                "export is labels-only (the images/ dir is empty) — pass "
+                "--images-root pointing at the source images, e.g. the staged "
+                "train_images/ dir."
+            )
 
         splits = _split(pairs, val_ratio, test_ratio, seed)
         for split, split_pairs in splits.items():
@@ -188,10 +223,19 @@ def main() -> int:
         "--test-ratio", type=float, default=0.0, help="test fraction (0 disables the test split)"
     )
     parser.add_argument("--seed", type=int, default=42, help="shuffle seed")
+    parser.add_argument(
+        "--images-root",
+        type=expanded_path,
+        default=None,
+        help=(
+            "fallback dir to source images from when the export's images/ is empty "
+            "(local-files workflow), e.g. the staged train_images/ dir"
+        ),
+    )
     args = parser.parse_args()
 
     summary = build_dataset(
-        args.export, args.out, args.val_ratio, args.test_ratio, args.seed
+        args.export, args.out, args.val_ratio, args.test_ratio, args.seed, args.images_root
     )
     print(
         f"✔︎ {summary['total']} pairs → train={summary['train']} val={summary['val']} "

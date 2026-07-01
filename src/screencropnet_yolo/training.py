@@ -11,6 +11,7 @@ This module handles:
 
 import json
 import logging
+import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,42 @@ from typing import Any
 from ultralytics import YOLO
 
 logger = logging.getLogger(__name__)
+
+
+_BOX_KEYS = {
+    "mAP50": "metrics/mAP50(B)",
+    "mAP50_95": "metrics/mAP50-95(B)",
+    "precision": "metrics/precision(B)",
+    "recall": "metrics/recall(B)",
+}
+
+
+def _format_epoch_label(epoch: int, total: int | None) -> str:
+    """Render the per-epoch progress prefix as ``N/total`` (or bare ``N`` if unknown).
+
+    Ultralytics fires one extra validation pass after the final training epoch, so
+    ``epoch`` can exceed ``total``; that pass is labeled as a post-training validation
+    rather than a nonsensical ``N+1/N``.
+    """
+    if not isinstance(total, int) or total <= 0:
+        return str(epoch)
+    if epoch > total:
+        return f"{total}/{total} (final val)"
+    return f"{epoch}/{total}"
+
+
+def _box_metrics(trainer: Any) -> dict[str, float]:
+    """Pull detection metrics out of ultralytics' ``trainer.metrics`` dict.
+
+    ``trainer.metrics`` is a plain dict keyed by ``metrics/<name>(B)`` (the
+    DetMetrics object with a ``.box`` attribute lives at ``trainer.validator.metrics``),
+    so the ``trainer.metrics.box.map50`` access form raises ``AttributeError``.
+    Missing keys fall back to 0.0 so callbacks stay safe before the first validation.
+    """
+    metrics = getattr(trainer, "metrics", None)
+    if not isinstance(metrics, dict):
+        return dict.fromkeys(_BOX_KEYS, 0.0)
+    return {name: float(metrics.get(key, 0.0)) for name, key in _BOX_KEYS.items()}
 
 
 @dataclass
@@ -64,6 +101,7 @@ class TrainingHistory:
     best_mAP50: float = 0.0
     best_mAP50_95: float = 0.0
     training_time: float = 0.0
+    best_model_path: str = ""
 
     def add_metrics(self, metrics: TrainingMetrics) -> None:
         """Add epoch metrics to history."""
@@ -83,6 +121,7 @@ class TrainingHistory:
             "best_mAP50": self.best_mAP50,
             "best_mAP50_95": self.best_mAP50_95,
             "training_time": self.training_time,
+            "best_model_path": self.best_model_path,
         }
 
     def save(self, path: str) -> None:
@@ -130,16 +169,24 @@ class TrainingCallback:
 class MetricsLogger(TrainingCallback):
     """Callback for logging training metrics."""
 
-    def __init__(self, history: TrainingHistory, log_interval: int = 1):
+    def __init__(
+        self,
+        history: TrainingHistory,
+        log_interval: int = 1,
+        total_epochs: int | None = None,
+    ):
         """
         Initialize metrics logger.
 
         Args:
             history: TrainingHistory instance to update
             log_interval: Epochs between detailed logging
+            total_epochs: Total planned epochs, rendered as ``Epoch N/total`` so
+                operators can gauge progress. Falls back to ``trainer.epochs``.
         """
         self.history = history
         self.log_interval = log_interval
+        self.total_epochs = total_epochs
         self.epoch_start_time: float | None = None
 
     def on_epoch_start(self, trainer: Any) -> None:
@@ -153,6 +200,8 @@ class MetricsLogger(TrainingCallback):
         import time
 
         epoch = trainer.epoch + 1
+        total = self.total_epochs or getattr(trainer, "epochs", None)
+        epoch_label = _format_epoch_label(epoch, total)
 
         # Extract metrics from trainer
         metrics = TrainingMetrics(
@@ -164,16 +213,16 @@ class MetricsLogger(TrainingCallback):
         )
 
         # Get validation metrics if available
-        if hasattr(trainer, "metrics") and trainer.metrics is not None:
-            metrics.mAP50 = float(trainer.metrics.box.map50)
-            metrics.mAP50_95 = float(trainer.metrics.box.map)
-            metrics.precision = float(trainer.metrics.box.mp)
-            metrics.recall = float(trainer.metrics.box.mr)
-            # Calculate F1
-            if metrics.precision + metrics.recall > 0:
-                metrics.f1 = (
-                    2 * (metrics.precision * metrics.recall) / (metrics.precision + metrics.recall)
-                )
+        box = _box_metrics(trainer)
+        metrics.mAP50 = box["mAP50"]
+        metrics.mAP50_95 = box["mAP50_95"]
+        metrics.precision = box["precision"]
+        metrics.recall = box["recall"]
+        # Calculate F1
+        if metrics.precision + metrics.recall > 0:
+            metrics.f1 = (
+                2 * (metrics.precision * metrics.recall) / (metrics.precision + metrics.recall)
+            )
 
         # Get learning rate
         if hasattr(trainer, "optimizer") and trainer.optimizer is not None:
@@ -187,7 +236,7 @@ class MetricsLogger(TrainingCallback):
                 time.time() - self.epoch_start_time if self.epoch_start_time is not None else 0.0
             )
             logger.info(
-                f"Epoch {epoch}: "
+                f"Epoch {epoch_label}: "
                 f"loss={metrics.train_loss:.4f}, "
                 f"mAP50={metrics.mAP50:.4f}, "
                 f"mAP50-95={metrics.mAP50_95:.4f}, "
@@ -229,13 +278,11 @@ class EarlyStopping(TrainingCallback):
     def on_epoch_end(self, trainer: Any) -> None:
         """Check if training should stop."""
         # Get current metric value
-        if hasattr(trainer, "metrics") and trainer.metrics is not None:
-            if self.monitor == "mAP50":
-                current = trainer.metrics.box.map50
-            elif self.monitor == "mAP50_95":
-                current = trainer.metrics.box.map
-            else:
-                return
+        box = _box_metrics(trainer)
+        if self.monitor == "mAP50":
+            current = box["mAP50"]
+        elif self.monitor == "mAP50_95":
+            current = box["mAP50_95"]
         else:
             return
 
@@ -282,23 +329,33 @@ class CheckpointCallback(TrainingCallback):
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
     def on_epoch_end(self, trainer: Any) -> None:
-        """Save checkpoint if needed."""
+        """Copy ultralytics' checkpoint into the custom save dir when needed.
+
+        Ultralytics writes ``weights/last.pt`` itself (exposed as ``trainer.last``)
+        before ``on_fit_epoch_end`` fires; the trainer has no ``save(path)`` method,
+        so we copy that file rather than re-serialize the model.
+        """
         epoch = trainer.epoch + 1
 
+        last = getattr(trainer, "last", None)
+        if last is None or not Path(last).exists():
+            return
+        last = Path(last)
+
         # Save periodic checkpoint
-        if epoch % self.save_period == 0:
+        if self.save_period and epoch % self.save_period == 0:
             checkpoint_path = self.save_dir / f"checkpoint_epoch_{epoch}.pt"
-            trainer.save(checkpoint_path)
+            shutil.copyfile(last, checkpoint_path)
             logger.info(f"Saved checkpoint: {checkpoint_path}")
 
         # Save best model
-        if self.save_best and hasattr(trainer, "metrics") and trainer.metrics is not None:
-            current_map = trainer.metrics.box.map
+        if self.save_best:
+            current_map = _box_metrics(trainer)["mAP50_95"]
             if current_map > self.best_map:
                 self.best_map = current_map
                 best_path = self.save_dir / "best.pt"
-                trainer.save(best_path)
-                logger.info(f"Saved new best model (mAP50-95: {current_map:.4f})")
+                shutil.copyfile(last, best_path)
+                logger.info(f"Saved new best model (mAP50-95: {current_map:.4f}) -> {best_path}")
 
 
 class TensorBoardCallback(TrainingCallback):
@@ -338,11 +395,11 @@ class TensorBoardCallback(TrainingCallback):
             self.writer.add_scalar("Loss/total", trainer.loss.mean(), epoch)
 
         # Log validation metrics
-        if hasattr(trainer, "metrics") and trainer.metrics is not None:
-            self.writer.add_scalar("Metrics/mAP50", trainer.metrics.box.map50, epoch)
-            self.writer.add_scalar("Metrics/mAP50-95", trainer.metrics.box.map, epoch)
-            self.writer.add_scalar("Metrics/precision", trainer.metrics.box.mp, epoch)
-            self.writer.add_scalar("Metrics/recall", trainer.metrics.box.mr, epoch)
+        box = _box_metrics(trainer)
+        self.writer.add_scalar("Metrics/mAP50", box["mAP50"], epoch)
+        self.writer.add_scalar("Metrics/mAP50-95", box["mAP50_95"], epoch)
+        self.writer.add_scalar("Metrics/precision", box["precision"], epoch)
+        self.writer.add_scalar("Metrics/recall", box["recall"], epoch)
 
         # Log learning rate
         if hasattr(trainer, "optimizer") and trainer.optimizer is not None:
@@ -402,15 +459,15 @@ class WandbCallback(TrainingCallback):
             )
 
         # Log validation metrics
-        if hasattr(trainer, "metrics") and trainer.metrics is not None:
-            log_dict.update(
-                {
-                    "metrics/mAP50": trainer.metrics.box.map50,
-                    "metrics/mAP50-95": trainer.metrics.box.map,
-                    "metrics/precision": trainer.metrics.box.mp,
-                    "metrics/recall": trainer.metrics.box.mr,
-                }
-            )
+        box = _box_metrics(trainer)
+        log_dict.update(
+            {
+                "metrics/mAP50": box["mAP50"],
+                "metrics/mAP50-95": box["mAP50_95"],
+                "metrics/precision": box["precision"],
+                "metrics/recall": box["recall"],
+            }
+        )
 
         self.wandb.log(log_dict)
 
@@ -454,7 +511,9 @@ class Trainer:
     def _setup_default_callbacks(self) -> None:
         """Set up default training callbacks."""
         # Metrics logger
-        self.callbacks.append(MetricsLogger(self.history))
+        self.callbacks.append(
+            MetricsLogger(self.history, total_epochs=self.config.get("epochs", 100))
+        )
 
         # Early stopping
         if self.config.get("patience", 0) > 0:
@@ -508,7 +567,9 @@ class Trainer:
         self.model.add_callback("on_train_start", create_hook("on_train_start"))
         self.model.add_callback("on_train_end", create_hook("on_train_end"))
         self.model.add_callback("on_train_epoch_start", create_hook("on_epoch_start"))
-        self.model.add_callback("on_train_epoch_end", create_hook("on_epoch_end"))
+        # on_fit_epoch_end fires after validation, when trainer.metrics is populated for
+        # the current epoch; on_train_epoch_end fires before validation (stale/zero metrics).
+        self.model.add_callback("on_fit_epoch_end", create_hook("on_epoch_end"))
         self.model.add_callback("on_val_start", create_hook("on_val_start"))
         self.model.add_callback("on_val_end", create_hook("on_val_end"))
 
@@ -539,7 +600,9 @@ class Trainer:
             "device": self.config.get("device", "auto"),
             "workers": self.config.get("workers", 8),
             "patience": self.config.get("patience", 20),
-            "project": str(self.output_dir),
+            # Absolute path: ultralytics rewrites a relative project under RUNS_DIR
+            # (runs/detect/...), which would scatter outputs away from output_dir.
+            "project": str(self.output_dir.resolve()),
             "name": "train",
             "exist_ok": True,
             "pretrained": True,
@@ -564,6 +627,14 @@ class Trainer:
             self.model.train(**train_args)
 
             self.history.training_time = time.time() - start_time
+
+            # Record where ultralytics actually wrote the weights. It resolves the run
+            # dir itself (and may relocate a relative project), so read the real paths
+            # off the trainer rather than reconstructing them.
+            ult = getattr(self.model, "trainer", None)
+            if ult is not None:
+                best, last = Path(ult.best), Path(ult.last)
+                self.history.best_model_path = str(best if best.exists() else last)
 
             logger.info(f"Training completed in {self.history.training_time:.1f}s")
             logger.info(f"Best mAP50: {self.history.best_mAP50:.4f}")
@@ -672,3 +743,20 @@ def create_ablation_study(
     logger.info(f"Ablation study complete. Summary saved to: {summary_path}")
 
     return results
+
+
+## Tests
+
+
+def test_format_epoch_label() -> None:
+    cases = {
+        (1, 100): "1/100",
+        (12, 100): "12/100",
+        (1, 1): "1/1",
+        (3, 2): "2/2 (final val)",  # ultralytics' post-training validation pass
+    }
+    for (epoch, total), expected in cases.items():
+        if _format_epoch_label(epoch, total) != expected:
+            raise AssertionError(f"epoch {epoch}/{total} -> {_format_epoch_label(epoch, total)!r}")
+    if _format_epoch_label(3, None) != "3":
+        raise AssertionError("unknown total must render the bare epoch number")

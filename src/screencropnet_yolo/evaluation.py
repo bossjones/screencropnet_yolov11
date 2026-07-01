@@ -20,6 +20,8 @@ import numpy as np
 import numpy.typing as npt
 from ultralytics import YOLO
 
+from screencropnet_yolo.model import resolve_device
+
 logger = logging.getLogger(__name__)
 
 
@@ -121,7 +123,8 @@ class Evaluator:
         self.model = model
         self.data_yaml = data_yaml
         self.class_names = class_names
-        self.device = device
+        # ultralytics' val() rejects device='auto'; resolve it to a concrete device.
+        self.device = resolve_device(device)
 
     def evaluate(
         self,

@@ -53,8 +53,13 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
   `.get_training_args(data_yaml, output_dir) -> dict`.
 - `AugmentationConfig` — `get_augmentation(strategy="twitter") -> dict`
   (strategies: `twitter`, `conservative`, `aggressive`).
-- `ModelExporter(model, output_dir)` — `.export(formats, image_size=640,
-  half=False, dynamic=False, simplify=True, opset=12) -> dict[str, str]`.
+- `ModelExporter(model, output_dir, source_weights=None)` — `.export(formats,
+  image_size=640, half=False, dynamic=False, simplify=True, opset=12) ->
+  dict[str, str]`. `source_weights` is the real `.pt` checkpoint backing `model`
+  (Ultralytics writes it to `{run}/train/weights/best.pt`, not `{output_dir}`);
+  the `pytorch` format reports/copies that file instead of guessing. PyTorch is
+  exported first; other formats (e.g. `onnx`) fail soft — a failed export logs
+  a warning and is skipped rather than aborting the run.
 - `ModelQuantizer(model_path)` — `.quantize_int8(calibration_data, output_path)`,
   `.quantize_fp16(output_path)`.
 
@@ -62,6 +67,35 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
 
 - `get_model_info(model) -> dict`
 - `compare_models(model_paths, test_image) -> dict`
+
+## `output`
+
+Pure presentation helpers for the training CLI (no Ultralytics/torch imports,
+raw ANSI rather than `rich`). Drives the run-configuration banner, the closing
+artifacts table, and color-aware logging.
+
+### Classes
+
+- `Color` — raw ANSI SGR code constants (`RESET`, `BOLD`, `DIM`, `RED`,
+  `GREEN`, `YELLOW`, `BLUE`, `CYAN`).
+- `Artifact(label, path, size)` (dataclass) — one row in the artifacts table;
+  `path`/`size` are `None` when the artifact wasn't produced.
+- `ColorFormatter(fmt=None, datefmt=None, *, enabled=False)` — a
+  `logging.Formatter` that colorizes the levelname when `enabled`; behaves as a
+  plain formatter otherwise, so the same format string drives both the colored
+  stream handler and the plain file handler.
+
+### Functions
+
+- `colorize(text, color, *, enabled) -> str` — wrap `text` in an ANSI code +
+  reset, or return it unchanged when `enabled` is false or `color` is empty.
+- `human_size(n_bytes) -> str` — format a byte count as e.g. `1.5 KB`.
+- `format_run_summary(*, model_size, arch, device, epochs, batch, imgsz,
+  dataset_path, output_dir, weights_dir, best_pt, export_formats, enabled=False)
+  -> str` — render the startup `RUN CONFIGURATION` banner.
+- `format_artifacts_table(rows, *, best_epoch=None, best_map=None,
+  enabled=False) -> str` — render the closing `ARTIFACTS` table from a list of
+  `Artifact`s.
 
 ## `training`
 
@@ -121,7 +155,9 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
   iou_threshold=0.45, max_detections=300)` — `.predict_image(image, conf=None,
   iou=None, augment=False)`, `.predict_batch(images, conf=None, iou=None,
   batch_size=16)`, `.predict_video(video_path, output_path=None, conf=None,
-  iou=None, show=False, save_frames=False)`.
+  iou=None, show=False, save_frames=False)`, `.draw_detections(image, result,
+  line_thickness=2, font_scale=0.5)` — returns an annotated copy; the input image
+  is not modified.
 - `ResultExporter` — static `to_json(results, output_path)`, `to_coco(results,
   output_path, class_names)`, `to_yolo(results, output_dir)`.
 
@@ -129,6 +165,31 @@ Constants: `TWEET_REGION_CLASS_ID = 0`, `TWEET_REGION_CLASS_NAME =
 
 - `apply_nms(detections, iou_threshold=0.45, class_agnostic=False) ->
   list[Detection]`
+
+## `demo`
+
+Standalone CLI tool (`screencrop-demo`) that samples images, runs async inference,
+and builds an annotated contact sheet — not part of the training pipeline. See
+[demo.md](demo.md) for the CLI. Public helpers:
+
+- `discover_images(directory, *, recursive=True) -> list[Path]` — image files under
+  `directory`, sorted.
+- `sample_images(images, count, rng) -> list[Path]` — random sample, clamped to what
+  is available.
+- `find_latest_run(runs_dir) -> Path | None` — newest trained `best.pt` by mtime.
+- `resolve_model(*, model, latest, config, runs_dir) -> (ref, label)` — pick the
+  model by precedence: `--model` > `--latest` > config default.
+- `tile_images(images, *, cols=5, cell=320, bg=30) -> ndarray` — grid a list of image
+  arrays into one contact sheet.
+- `build_contact_sheet(image_paths, *, cols=5, cell=320) -> ndarray` — read annotated
+  copies and tile them into one montage.
+- `annotate_one(pipeline, src, out_dir, *, predict_lock=None) -> (Path, InferenceResult)`
+  — infer, draw, and write one annotated copy (blocking).
+- `run_demo(pipeline, images, out_dir, *, concurrency=8) -> list[(Path, InferenceResult)]`
+  (async) — fan out `annotate_one` with bounded concurrency.
+- `open_paths(paths, *, enabled=True) -> None` — open paths in the macOS viewer;
+  no-op when disabled or off macOS.
+- `main(argv=None) -> int` — CLI entry point (`0` on success, `1` on error).
 
 ## `visualization`
 

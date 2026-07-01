@@ -30,6 +30,7 @@ Pytest specifics:
 - Custom markers: `e2e`, `fast`, `integration`, `slow`, `unittest`. Deselect with e.g. `-m "not slow"`.
 - Tests have a 30s thread-based timeout by default.
 - Coverage is on by default and writes to `cov.xml`, `htmlcov/`, `cov_annotate/`, and `junit/test-results.xml`. Open the HTML report with `make open-coverage`.
+- Don't override coverage (`-p no:cov` or a custom `--cov`) — `addopts` injects cov flags and overriding them errors; run `uv run pytest <target>` as-is.
 
 Type-stub generation from runtime traces:
 
@@ -44,16 +45,31 @@ This is a YOLO 26 training/inference pipeline for detecting and classifying boun
 Pipeline modules (each is a self-contained stage; the train script wires them together):
 
 - `dataset_utils.py` — `RoboflowLoader`, `DatasetSplitter`, `DatasetValidator`, `create_dataset_yaml`, `check_class_imbalance`, `display_dataset_stats`. Handles dataset acquisition, train/val/test splits, and YOLO-format `data.yaml` generation.
-- `model.py` — `ModelConfig`, `AugmentationConfig`, `ModelFactory`, `ModelExporter`. Wraps Ultralytics `YOLO` with config dataclasses; centralizes hyperparameters, device selection, multi-GPU setup, and export formats.
+- `dataset_import.py` — `prepare_twitter_dataset`, `convert_csv`, `pascal_row_to_yolo`. Bridges externally produced Pascal-VOC CSV annotations into the single-class `tweet_region` YOLO layout, reusing `DatasetSplitter`/`create_dataset_yaml`.
+- `model.py` — `ModelConfig`, `AugmentationConfig`, `ModelFactory`, `ModelExporter`, `ModelQuantizer`. Wraps Ultralytics `YOLO` with config dataclasses; centralizes hyperparameters, device selection, multi-GPU setup, and export formats. `ModelExporter` exports `pytorch` first (copying the real `train/weights/best.pt` via `source_weights`); other formats fail soft.
 - `training.py` — `Trainer`, `TrainingHistory`, `create_ablation_study`. Owns the training loop and produces history artifacts; ablation helper compares hyperparameter variants.
 - `evaluation.py` — `Evaluator`, `EvaluationResults`. Computes metrics on val/test sets after training.
 - `inference.py` — runtime prediction on new images.
+- `demo.py` — CLI (`screencrop-demo`) for a fast visual smoke test: sample N random images, run async inference off the event loop, draw boxes onto copies, and stitch a `contact_sheet.png` montage. `resolve_model` picks the model by precedence: `--select`/`--fuzzy` (interactive `fzf` pick of any `.pt`/`.onnx` under `runs/`, via `pyfzf`, imported lazily) > `--model` > `--latest` > config/base checkpoint. `--select`/`--model`/`--latest` are mutually exclusive; `fzf` is a system prerequisite for `--select`. See `docs/demo.md`.
 - `visualization.py` — `TrainingVisualizer`, `ConfusionMatrixVisualizer`, `ResultsDashboard`. Plot helpers used by both training and evaluation.
-- `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Logs to a timestamped file under the run's output dir.
+- `output.py` — `format_run_summary`, `format_artifacts_table`, `human_size`, `colorize`, `Color`, `Artifact`, `ColorFormatter`. Pure presentation helpers for the CLI's run banner, artifacts table, and color-aware logging; no Ultralytics/torch imports, raw ANSI instead of `rich`. Color is opt-in via `--color` (auto-disabled off a TTY or under `NO_COLOR`).
+- `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Prints a RUN CONFIGURATION banner before training and an ARTIFACTS table after export. Logs to a timestamped file under the run's output dir.
 - `screencropnet_yolo.py` — package entrypoint exposed via `[project.scripts]` as the `screencropnet_yolo` command (currently a stub `main()`).
 - `config/config.yaml` — default training config consumed by `train.py --config`.
 
 Key external dependencies: `ultralytics` (YOLO 26), `torch`, `opencv-python`, `wandb` (experiment tracking), `matplotlib`/`seaborn` (plots), `albumentationsx` (augmentation, dev-only).
+
+ONNX export deps (`onnx`, `onnxslim`, `onnxruntime`) are pinned in main `dependencies`: ultralytics' export tries to `pip install` them on demand, which fails in the uv venv (no `pip`), so they must stay declared — add deps with `uv add`, never rely on auto-install.
+
+The demo's `--select` picker uses `pyfzf`, which shells out to the [`fzf`](https://github.com/junegunn/fzf) binary — a **system prerequisite** (`brew install fzf`), not a pip-installable dependency. `pyfzf` is imported lazily inside `demo._fzf_select`, so importing `demo` (and every other code path) never requires `fzf`.
+
+End-to-end smoke (full train→eval→export→visualize against the local default dataset; Roboflow is disabled by default in `config.yaml`):
+
+```bash
+uv run python -m screencropnet_yolo.train --epochs 2 --model-size n --batch 4 --imgsz 320 --output ./runs/smoke
+```
+
+The default dataset lives at `datasets/twitter_screenshots_localization_dataset` (train/val/test + `data.yaml`); all `runs/` output is gitignored.
 
 ## Project conventions
 
