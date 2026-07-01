@@ -53,6 +53,7 @@ dependencies = [
     "prometheus-client>=0.25.0",
     "pydantic>=2",
     "pydantic-settings>=2",
+    "pyfzf>=0.3.1",
     "python-multipart>=0.0.32",
     "pyyaml>=6.0.3",
     "seaborn>=0.13.2",
@@ -100,6 +101,7 @@ worker = [
 screencropnet_yolo = "screencropnet_yolo:main"
 screencrop-cli = "screencropnet_yolo.client.cli:main"
 screencrop-worker = "screencropnet_yolo.server.worker:main"
+screencrop-demo = "screencropnet_yolo.demo:main"
 
 
 # ---- Build system ----

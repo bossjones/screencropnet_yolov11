@@ -50,6 +50,7 @@ Pipeline modules (each is a self-contained stage; the train script wires them to
 - `training.py` — `Trainer`, `TrainingHistory`, `create_ablation_study`. Owns the training loop and produces history artifacts; ablation helper compares hyperparameter variants.
 - `evaluation.py` — `Evaluator`, `EvaluationResults`. Computes metrics on val/test sets after training.
 - `inference.py` — runtime prediction on new images.
+- `demo.py` — CLI (`screencrop-demo`) for a fast visual smoke test: sample N random images, run async inference off the event loop, draw boxes onto copies, and stitch a `contact_sheet.png` montage. `resolve_model` picks the model by precedence: `--select`/`--fuzzy` (interactive `fzf` pick of any `.pt`/`.onnx` under `runs/`, via `pyfzf`, imported lazily) > `--model` > `--latest` > config/base checkpoint. `--select`/`--model`/`--latest` are mutually exclusive; `fzf` is a system prerequisite for `--select`. See `docs/demo.md`.
 - `visualization.py` — `TrainingVisualizer`, `ConfusionMatrixVisualizer`, `ResultsDashboard`. Plot helpers used by both training and evaluation.
 - `output.py` — `format_run_summary`, `format_artifacts_table`, `human_size`, `colorize`, `Color`, `Artifact`, `ColorFormatter`. Pure presentation helpers for the CLI's run banner, artifacts table, and color-aware logging; no Ultralytics/torch imports, raw ANSI instead of `rich`. Color is opt-in via `--color` (auto-disabled off a TTY or under `NO_COLOR`).
 - `train.py` — CLI entry point that orchestrates the above (loads config, splits data, builds model, trains, evaluates, visualizes). Prints a RUN CONFIGURATION banner before training and an ARTIFACTS table after export. Logs to a timestamped file under the run's output dir.
@@ -59,6 +60,8 @@ Pipeline modules (each is a self-contained stage; the train script wires them to
 Key external dependencies: `ultralytics` (YOLO 26), `torch`, `opencv-python`, `wandb` (experiment tracking), `matplotlib`/`seaborn` (plots), `albumentationsx` (augmentation, dev-only).
 
 ONNX export deps (`onnx`, `onnxslim`, `onnxruntime`) are pinned in main `dependencies`: ultralytics' export tries to `pip install` them on demand, which fails in the uv venv (no `pip`), so they must stay declared — add deps with `uv add`, never rely on auto-install.
+
+The demo's `--select` picker uses `pyfzf`, which shells out to the [`fzf`](https://github.com/junegunn/fzf) binary — a **system prerequisite** (`brew install fzf`), not a pip-installable dependency. `pyfzf` is imported lazily inside `demo._fzf_select`, so importing `demo` (and every other code path) never requires `fzf`.
 
 End-to-end smoke (full train→eval→export→visualize against the local default dataset; Roboflow is disabled by default in `config.yaml`):
 
