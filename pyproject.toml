@@ -204,6 +204,12 @@ reportUnannotatedClassAttribute = false
 # reportUnknownVariableType = false
 # reportUnknownArgumentType = false
 
+[tool.ty.src]
+# Match basedpyright's `include` above: ty otherwise scans the whole repo,
+# pulling in .claude/hooks, scripts/, and tools/labeling/ — none of which are
+# installed in this project's venv.
+include = ["src", "tests", "devtools"]
+
 [tool.codespell]
 # Add here as needed:
 # ignore-words-list = "foo,bar"

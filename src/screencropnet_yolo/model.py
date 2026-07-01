@@ -100,6 +100,7 @@ class ModelFactory:
         Returns:
             Device string for PyTorch
         """
+        device: str | list[int] | int
         if self.config.device == "auto":
             if torch.cuda.is_available():
                 device = "cuda"
@@ -112,6 +113,9 @@ class ModelFactory:
                     logger.info(f"  GPU {i}: {gpu_name} ({gpu_memory:.1f} GB)")
 
                 if self.config.multi_gpu and gpu_count > 1:
+                    assert self.config.gpu_ids is not None, (
+                        "gpu_ids must be set for multi-GPU training"
+                    )
                     device = self.config.gpu_ids
                     logger.info(f"Multi-GPU training enabled on devices: {device}")
                 else:
@@ -127,7 +131,7 @@ class ModelFactory:
             device = self.config.device
             logger.info(f"Using specified device: {device}")
 
-        return device  # pyright: ignore[reportReturnType]
+        return device
 
     def create_model(self) -> YOLO:
         """
@@ -485,8 +489,8 @@ def get_model_info(model: YOLO) -> dict[str, Any]:
 
     # Get model parameters
     if hasattr(model, "model") and model.model is not None and hasattr(model.model, "parameters"):
-        total_params = sum(p.numel() for p in model.model.parameters())  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
-        trainable_params = sum(p.numel() for p in model.model.parameters() if p.requires_grad)  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]
+        total_params = sum(p.numel() for p in model.model.parameters())  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]  # ty: ignore[call-non-callable]
+        trainable_params = sum(p.numel() for p in model.model.parameters() if p.requires_grad)  # pyright: ignore[reportOptionalMemberAccess, reportAttributeAccessIssue]  # ty: ignore[call-non-callable]
 
         info["total_parameters"] = total_params
         info["trainable_parameters"] = trainable_params

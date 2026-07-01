@@ -267,18 +267,18 @@ class InferencePipeline:
 
             # Parse each result
             for j, res in enumerate(results):
-                img_path = batch[j] if isinstance(batch[j], str) else f"image_{i + j}"
+                item = batch[j]
+                img_path = item if isinstance(item, str) else f"image_{i + j}"
 
                 # Get image size
-                if isinstance(batch[j], str):
-                    img = cv2.imread(batch[j])  # pyright: ignore[reportArgumentType, reportCallIssue]
+                if isinstance(item, str):
+                    img = cv2.imread(item)
                     if img is None:
-                        logger.warning(f"Failed to read image: {batch[j]}")
+                        logger.warning(f"Failed to read image: {item}")
                         continue
                     img_size = (img.shape[1], img.shape[0])
                 else:
-                    img_arr = batch[j]  # pyright: ignore[reportUnknownVariableType]
-                    img_size = (img_arr.shape[1], img_arr.shape[0])  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue]
+                    img_size = (item.shape[1], item.shape[0])
 
                 result = InferenceResult(
                     image_path=str(img_path),
@@ -356,7 +356,7 @@ class InferencePipeline:
         # Setup video writer if saving
         writer = None
         if output_path:
-            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # pyright: ignore[reportAttributeAccessIssue]
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")  # pyright: ignore[reportAttributeAccessIssue]  # ty: ignore[unresolved-attribute]
             writer = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
         frame_results = []
@@ -368,12 +368,12 @@ class InferencePipeline:
                 break
 
             # Run inference
-            result = self.predict_image(frame, conf=conf, iou=iou)  # pyright: ignore[reportArgumentType]
+            result = self.predict_image(frame, conf=conf, iou=iou)  # pyright: ignore[reportArgumentType]  # ty: ignore[invalid-argument-type]
             result.image_path = f"frame_{frame_idx}"
             frame_results.append(result)
 
             # Draw annotations on frame
-            annotated = self.draw_detections(frame, result)  # pyright: ignore[reportArgumentType]
+            annotated = self.draw_detections(frame, result)  # pyright: ignore[reportArgumentType]  # ty: ignore[invalid-argument-type]
 
             # Save frame
             if writer:
