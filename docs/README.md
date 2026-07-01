@@ -5,7 +5,10 @@ This directory contains the project documentation. Each file covers a distinct t
 | File | Title | Description |
 |------|-------|-------------|
 | [quickstart.md](quickstart.md) | Quickstart | Get the async classify pipeline (FastAPI + worker + Postgres + CLI) running end to end |
-| [running-the-classifier-service.md](running-the-classifier-service.md) | Running the classifier service | Deep end-to-end tutorial: bring up services, the API, and workers; submit folders; monitor with `top`/`doctor`; export — with diagrams |
+| [running-the-classifier-service.md](running-the-classifier-service.md) | Running the classifier service | Deep end-to-end tutorial: bring up services, the API, and a single worker; submit folders; monitor with `top`/`doctor`; export — with diagrams |
+| [worker-fleet-tutorial.md](worker-fleet-tutorial.md) | Scaling to a worker fleet | Hands-on tutorial: bring up the stack and a scaled `screencrop-supervisorctl` fleet of competing-consumer workers to classify a folder — with diagrams |
+| [worker-fleet-architecture.md](worker-fleet-architecture.md) | Worker fleet architecture | Diagram-first reference: fleet topology, the warm-shutdown handshake, and the fleet/job lifecycles |
+| [supervisor.md](supervisor.md) | `screencrop-supervisorctl` | Manage a fleet of host worker processes: start/stop/restart/status/logs, warm vs cold shutdown, per-worker ports/logs/state |
 | [screencrop-pipeline.md](screencrop-pipeline.md) | Screenshot ingest/classify pipeline | Architecture (with diagrams), endpoints, Prometheus metrics, export semantics, and the `SCREENCROPNET_` config reference |
 | [serve.md](serve.md) | `screencrop-cli serve` | Boot the API against a fuzzy-selected model, optionally co-launching a worker |
 | [top.md](top.md) | `screencrop-cli top` | Live Textual dashboard of jobs in flight |

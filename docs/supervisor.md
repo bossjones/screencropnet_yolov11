@@ -19,6 +19,43 @@ uv run screencrop-supervisorctl restart --all
 uv run screencrop-supervisorctl stop --all        # warm, then cold-kill stragglers
 ```
 
+## Fleet topology
+
+`supervisorctl` spawns N detached `screencrop-worker` processes that all consume
+the one shared queue as competing consumers; each worker gets its own metrics
+port, log, and state file (see below). The API only enqueues — Postgres is the
+source of truth.
+
+```mermaid
+graph LR
+    CLI["screencrop-cli"]
+    SUP["screencrop-supervisorctl"]
+    API["FastAPI :8000"]
+    PG[("Postgres<br/>:5432")]
+    MQ{{"RabbitMQ<br/>screennet_inference_queue<br/>:5672"}}
+
+    subgraph FLEET["Fleet (host)"]
+        W1["worker@1<br/>:8001"]
+        W2["worker@2<br/>:8002"]
+        W3["worker@3<br/>:8003"]
+    end
+
+    CLI -->|WebP POST| API
+    API -->|write pending| PG
+    API -->|publish| MQ
+    MQ -->|round-robin| W1
+    MQ -->|round-robin| W2
+    MQ -->|round-robin| W3
+    W1 -->|write result| PG
+    W2 -->|write result| PG
+    W3 -->|write result| PG
+    SUP -.->|spawn / signal / poll| FLEET
+```
+
+For the warm-shutdown handshake and fleet/job lifecycle diagrams, see
+[worker-fleet-architecture.md](worker-fleet-architecture.md); for a hands-on
+walkthrough, see [worker-fleet-tutorial.md](worker-fleet-tutorial.md).
+
 ## Commands
 
 | Command | Purpose |
