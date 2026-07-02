@@ -21,8 +21,10 @@ import shutil
 import subprocess
 import sys
 import threading
-from contextlib import nullcontext
+from collections.abc import Iterator
+from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
+from logging.handlers import MemoryHandler
 from pathlib import Path
 from typing import Any
 
@@ -411,6 +413,29 @@ def _setup_logging(level: int, *, console: Console) -> None:
     logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
 
+@contextmanager
+def _deferred_logs() -> Iterator[None]:
+    """Buffer log records emitted inside the block and replay them on exit.
+
+    While a live Progress bar is drawing, any log line written to the same terminal
+    races with the bar's redraws and can visually collide with it. Buffering keeps
+    the bar the only thing drawing during the run; the captured lines are flushed to
+    the real handlers once the bar is gone, so they read cleanly above the results.
+    """
+    root = logging.getLogger()
+    handlers = root.handlers
+    buffer = MemoryHandler(capacity=100_000, flushLevel=logging.CRITICAL + 1, target=None)
+    root.handlers = [buffer]
+    try:
+        yield
+    finally:
+        root.handlers = handlers
+        if handlers:
+            buffer.setTarget(handlers[0])
+            buffer.flush()
+        buffer.close()
+
+
 @app.command()
 def run(  # noqa: PLR0913 — a CLI surface is inherently wide
     input: str = typer.Argument(..., help="Image, video, or directory (~ and $VARS expanded)."),
@@ -490,7 +515,10 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
         )
         err_console.print(f"[green]✔︎[/green] {banner}")
 
-    with Progress(console=err_console, disable=not sys.stderr.isatty()) as progress:
+    with (
+        _deferred_logs(),
+        Progress(console=err_console, disable=not sys.stderr.isatty()) as progress,
+    ):
         results = asyncio.run(
             run_media(
                 inputs,

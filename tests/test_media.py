@@ -447,6 +447,30 @@ def test_build_pipeline_quiets_only_onnx(
         raise AssertionError(f"_quiet_onnxruntime called={quiet.called} for {model_ref}")
 
 
+def test_deferred_logs_replays_after_block() -> None:
+    """Records logged inside the block are withheld until it exits, then replayed."""
+    root = logging.getLogger()
+    saved = root.handlers[:]
+    seen: list[str] = []
+
+    class _Capture(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            seen.append(record.getMessage())
+
+    root.handlers = [_Capture()]
+    log = logging.getLogger("test.deferred")
+    log.setLevel(logging.DEBUG)
+    try:
+        with media._deferred_logs():
+            log.warning("during")
+            if seen:
+                raise AssertionError("must not emit while the progress bar is live")
+        if seen != ["during"]:
+            raise AssertionError(f"the buffered record must replay after the block, got {seen}")
+    finally:
+        root.handlers = saved
+
+
 def test_setup_logging_binds_richhandler_to_console() -> None:
     """Logging must share the console the Progress uses, so the two coordinate."""
     root = logging.getLogger()
