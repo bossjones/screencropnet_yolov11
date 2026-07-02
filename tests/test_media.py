@@ -399,9 +399,35 @@ def test_build_pipeline_passes_select(mocker: MockerFixture, tmp_path: Path) -> 
     mocker.patch("screencropnet_yolo.media.resolve_device", return_value="cpu")
     mocker.patch("screencropnet_yolo.media.InferencePipeline")
 
-    media.build_pipeline(model=None, latest=False, select=True, conf=None, config_path=tmp_path)
+    _pipeline, banner = media.build_pipeline(
+        model=None, latest=False, select=True, conf=None, config_path=tmp_path
+    )
     if resolve.call_args.kwargs.get("select") is not True:
         raise AssertionError("--select must propagate to resolve_model")
+    if "m.pt" not in banner or "selected (m.pt)" not in banner:
+        raise AssertionError(f"the banner must name the resolved model, got: {banner!r}")
+
+
+@pytest.mark.parametrize(
+    "model_flag", [["--fuzzy"], ["--select"], ["--latest"], ["--model", "x.pt"]]
+)
+def test_cli_model_flag_without_autocrop_errors(
+    sample_image: Path, tmp_path: Path, model_flag: list[str]
+) -> None:
+    in_dir = tmp_path / "in"
+    in_dir.mkdir()
+    shutil.copy2(sample_image, in_dir / "a.png")
+    out_dir = tmp_path / "out"
+    result = CliRunner().invoke(
+        media.app, [str(in_dir), *model_flag, "--output-dir", str(out_dir), "--no-color"]
+    )
+    if result.exit_code != 1 or "require --autocrop" not in result.output:
+        raise AssertionError(
+            f"{model_flag} without --autocrop must exit 1 with guidance, got "
+            f"{result.exit_code}: {result.output}"
+        )
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise AssertionError("the guard must reject before writing any artifact")
 
 
 # ---- integration (real ffmpeg; deselected by default via -m 'not integration') -------
@@ -423,3 +449,37 @@ def test_integration_video_resize_real_ffmpeg(sample_video: Path, tmp_path: Path
     )
     if not dst.exists() or dst.stat().st_size <= 0:
         raise AssertionError("real ffmpeg resize must produce a non-empty mp4")
+
+
+@pytest.mark.integration
+def test_integration_autocrop_real_model_reports_and_writes(
+    sample_image: Path, tmp_path: Path
+) -> None:
+    """End-to-end: a real YOLO model crops a fixture and its identity is surfaced."""
+    pytest.importorskip("torch")
+    weights = Path(__file__).parent.parent / "yolo26n.pt"
+    if not weights.exists():
+        pytest.skip("yolo26n.pt checkpoint is unavailable")
+    before = sample_image.read_bytes()
+    out_dir = tmp_path / "out"
+    result = CliRunner().invoke(
+        media.app,
+        [
+            str(sample_image),
+            "--autocrop",
+            "--model",
+            str(weights),
+            "--output-dir",
+            str(out_dir),
+            "--no-color",
+        ],
+    )
+    if result.exit_code != 0:
+        raise AssertionError(f"real-model autocrop must succeed, got: {result.output}")
+    if "Model:" not in result.output or "yolo26n" not in result.output:
+        raise AssertionError(f"the run must name the model in use, got: {result.output}")
+    artifacts = [p for p in out_dir.rglob("*") if p.is_file()]
+    if not artifacts:
+        raise AssertionError("autocrop must write at least one artifact")
+    if sample_image.read_bytes() != before:
+        raise AssertionError("the input must be left untouched")

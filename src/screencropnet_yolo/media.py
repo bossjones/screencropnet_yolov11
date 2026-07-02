@@ -459,13 +459,18 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
         console.print(f"[red]✘[/red] {exc}")
         raise typer.Exit(code=1) from exc
 
-    pipeline = (
-        build_pipeline(
+    if (select or latest or model is not None) and not autocrop:
+        console.print(
+            "[red]✘[/red] --fuzzy/--select/--model/--latest require --autocrop; nothing to do"
+        )
+        raise typer.Exit(code=1)
+
+    pipeline = None
+    if autocrop:
+        pipeline, banner = build_pipeline(
             model=model, latest=latest, select=select, conf=conf, config_path=config_path
         )
-        if autocrop
-        else None
-    )
+        console.print(f"[green]✔︎[/green] {banner}")
 
     with Progress(console=console, disable=not sys.stderr.isatty()) as progress:
         results = asyncio.run(
@@ -490,8 +495,12 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
 
 def build_pipeline(
     *, model: str | None, latest: bool, select: bool, conf: float | None, config_path: Path
-) -> InferencePipeline:
-    """Resolve the model and construct a YOLO inference pipeline (torch import happens here)."""
+) -> tuple[InferencePipeline, str]:
+    """Resolve the model and build a YOLO pipeline (torch import happens here).
+
+    Returns the pipeline plus a one-line banner naming the resolved weights so the
+    caller can surface exactly which model ran, not just a hidden log line.
+    """
     config = load_config(str(config_path))
     model_ref, source = resolve_model(
         model=model, latest=latest, select=select, config=config, runs_dir=DEFAULT_RUNS_DIR
@@ -500,10 +509,13 @@ def build_pipeline(
     class_names = model_cfg.get("class_names", ["object"])
     threshold = conf if conf is not None else config.get("inference", {}).get("confidence", 0.25)
     device = str(resolve_device(config.get("device", {}).get("type", "auto")))
+    shown = str(Path(model_ref).resolve()) if Path(model_ref).exists() else str(model_ref)
+    banner = f"Model: {shown} ({source}) | device: {device} | conf: {threshold}"
     logger.info("Model: %s | device: %s | conf: %s", source, device, threshold)
-    return InferencePipeline(
+    pipeline = InferencePipeline(
         model_path=model_ref, class_names=class_names, device=device, conf_threshold=threshold
     )
+    return pipeline, banner
 
 
 def _summary_table(results: list[MediaResult]) -> Table:
