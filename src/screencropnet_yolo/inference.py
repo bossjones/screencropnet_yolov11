@@ -129,7 +129,9 @@ class InferencePipeline:
             iou_threshold: IoU threshold for NMS
             max_detections: Maximum detections per image
         """
-        self.model = YOLO(model_path)
+        # This project is a single-class detector; state the task explicitly so ONNX
+        # models (which may not carry task metadata) load without Ultralytics' warning.
+        self.model = YOLO(model_path, task="detect")
         self.class_names = class_names
         self.device = device
         self.conf_threshold = conf_threshold
