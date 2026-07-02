@@ -9,6 +9,7 @@ A single tool-gated ``@pytest.mark.integration`` test runs real ffmpeg on the cl
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -105,6 +106,7 @@ def test_write_image_roundtrips_atomically(sample_image: Path, tmp_path: Path) -
 
 
 def test_probe_media_parses_json(mocker: MockerFixture, sample_video: Path) -> None:
+    mocker.patch("screencropnet_yolo.media.ensure_binary")
     mocker.patch(
         "screencropnet_yolo.media.subprocess.run",
         return_value=subprocess.CompletedProcess(
@@ -299,19 +301,22 @@ async def test_run_media_skips_failures(sample_image: Path, tmp_path: Path) -> N
 
 
 def test_cli_help_lists_flags(monkeypatch: pytest.MonkeyPatch) -> None:
-    # Force a wide render so rich never wraps/hides an option name at a narrow CI width.
+    # CI force-enables color; rich highlights each dash separately, so ANSI codes split
+    # "--autocrop" in the raw output. Strip escapes (and widen) before asserting.
     monkeypatch.setenv("COLUMNS", "200")
     result = CliRunner().invoke(media.app, ["--help"])
-    if result.exit_code != 0 or "--autocrop" not in result.output:
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    if result.exit_code != 0 or "--autocrop" not in clean:
         raise AssertionError(
             f"--help must succeed and document --autocrop; "
-            f"exit={result.exit_code} exc={result.exception!r} output={result.output!r}"
+            f"exit={result.exit_code} exc={result.exception!r} clean={clean!r}"
         )
 
 
 def test_cli_info_json_on_fixtures(fixtures_dir: Path) -> None:
     result = CliRunner().invoke(media.app, [str(fixtures_dir), "--info", "--json", "--no-color"])
-    if result.exit_code != 0 or '"kind": "image"' not in result.output:
+    clean = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    if result.exit_code != 0 or '"kind": "image"' not in clean:
         raise AssertionError(f"--info --json must report image metadata, got:\n{result.output}")
 
 
