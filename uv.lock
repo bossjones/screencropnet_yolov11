@@ -2630,6 +2630,7 @@ dependencies = [
     { name = "pyfzf" },
     { name = "python-multipart" },
     { name = "pyyaml" },
+    { name = "rich" },
     { name = "seaborn" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "strif" },
@@ -2660,7 +2661,6 @@ dev = [
     { name = "pytest-subprocess" },
     { name = "pytest-sugar" },
     { name = "pytest-timeout" },
-    { name = "rich" },
     { name = "ruff" },
     { name = "ty" },
 ]
@@ -2689,6 +2689,7 @@ requires-dist = [
     { name = "pyfzf", specifier = ">=0.3.1" },
     { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "rich", specifier = ">=14.0.0" },
     { name = "seaborn", specifier = ">=0.13.2" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2" },
     { name = "strif", specifier = ">=3.1.0" },
@@ -2719,7 +2720,6 @@ dev = [
     { name = "pytest-subprocess", specifier = ">=1.5.3" },
     { name = "pytest-sugar", specifier = ">=1.0.0" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
-    { name = "rich", specifier = ">=14.0.0" },
     { name = "ruff", specifier = ">=0.11.9" },
     { name = "ty", specifier = ">=0.0.6" },
 ]

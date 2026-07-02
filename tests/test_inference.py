@@ -249,7 +249,11 @@ class TestInferencePipeline:
     """Tests for InferencePipeline class."""
 
     def test_init_loads_model(self, mocker: MockerFixture) -> None:
-        """Initializing pipeline loads YOLO model."""
+        """Initializing pipeline loads YOLO with an explicit detect task.
+
+        Passing ``task="detect"`` keeps ONNX models (which may lack task metadata)
+        loading without Ultralytics' "unable to guess model task" warning.
+        """
         mock_yolo = mocker.patch("screencropnet_yolo.inference.YOLO")
 
         InferencePipeline(
@@ -257,7 +261,7 @@ class TestInferencePipeline:
             class_names=["class_a", "class_b"],
         )
 
-        mock_yolo.assert_called_once_with("/path/to/model.pt")
+        mock_yolo.assert_called_once_with("/path/to/model.pt", task="detect")
 
     def test_init_stores_parameters(self, mocker: MockerFixture) -> None:
         """Pipeline stores configuration parameters."""

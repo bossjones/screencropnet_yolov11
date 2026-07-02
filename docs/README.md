@@ -16,6 +16,7 @@ This directory contains the project documentation. Each file covers a distinct t
 | [installation.md](installation.md) | Installation | Installing uv and Python; quick setup cheat sheet for macOS/Linux |
 | [usage.md](usage.md) | Usage | Training CLI syntax, options, and common Python API examples |
 | [demo.md](demo.md) | Demo tool | Quick visual smoke test: sample images, run inference, and open an annotated contact-sheet montage |
+| [screencrop-media-tutorial.md](screencrop-media-tutorial.md) | Cropping & resizing with `screencrop-media` | Hands-on tutorial: crop screenshots to the detected tweet region and resize onto a solid background — single files, folders, and video clips |
 | [dataset-preparation.md](dataset-preparation.md) | Dataset preparation | YOLO-format layout and four ingestion methods: validation, Roboflow pull, Pascal-VOC CSV conversion, and Label Studio |
 | [configuration.md](configuration.md) | Configuration reference | All YAML training config keys, their defaults, and descriptions |
 | [architecture.md](architecture.md) | Architecture | Pipeline stage breakdown and data-flow from dataset acquisition through model export |
