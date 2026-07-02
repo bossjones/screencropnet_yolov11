@@ -163,6 +163,33 @@ def test_process_video_passthrough_copies(tmp_path: Path) -> None:
         raise AssertionError("neither flag must passthrough-copy the video unchanged")
 
 
+def test_process_video_no_detections_copies_without_reencode(
+    mocker: MockerFixture, tmp_path: Path
+) -> None:
+    src = tmp_path / "in.mp4"
+    src.write_bytes(b"video-bytes")
+    dst = tmp_path / "out" / "in.mp4"
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    mocker.patch("screencropnet_yolo.media.ensure_binary")
+    mocker.patch("screencropnet_yolo.media.sample_video_frames", return_value=[frame])
+    run = mocker.patch("screencropnet_yolo.media.run_ffmpeg")
+    pipeline = _fake_pipeline(mocker, [])  # no detections → empty crop, no resize
+
+    media.process_video(
+        src,
+        dst,
+        autocrop=True,
+        autoresize=False,
+        size=(1080, 1080),
+        bg_override=None,
+        pipeline=pipeline,
+    )
+    if run.called:
+        raise AssertionError("an empty filter must skip ffmpeg, not re-encode")
+    if dst.read_bytes() != b"video-bytes":
+        raise AssertionError("the clip must be copied through unchanged")
+
+
 # ---- process_image -------------------------------------------------------------------
 
 
@@ -271,16 +298,36 @@ async def test_run_media_skips_failures(sample_image: Path, tmp_path: Path) -> N
 # ---- CLI (CliRunner) -----------------------------------------------------------------
 
 
-def test_cli_help_lists_flags() -> None:
+def test_cli_help_lists_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Force a wide render so rich never wraps/hides an option name at a narrow CI width.
+    monkeypatch.setenv("COLUMNS", "200")
     result = CliRunner().invoke(media.app, ["--help"])
     if result.exit_code != 0 or "--autocrop" not in result.output:
-        raise AssertionError("--help must succeed and document --autocrop")
+        raise AssertionError(
+            f"--help must succeed and document --autocrop; "
+            f"exit={result.exit_code} exc={result.exception!r} output={result.output!r}"
+        )
 
 
 def test_cli_info_json_on_fixtures(fixtures_dir: Path) -> None:
     result = CliRunner().invoke(media.app, [str(fixtures_dir), "--info", "--json", "--no-color"])
     if result.exit_code != 0 or '"kind": "image"' not in result.output:
         raise AssertionError(f"--info --json must report image metadata, got:\n{result.output}")
+
+
+def test_gather_info_survives_probe_failure(mocker: MockerFixture, sample_video: Path) -> None:
+    # A missing/broken ffprobe (as on a CI runner without ffmpeg) must degrade, not crash.
+    mocker.patch(
+        "screencropnet_yolo.media.probe_media",
+        side_effect=RuntimeError("Required binary 'ffprobe' not found on PATH"),
+    )
+    rows = media.gather_info([sample_video])
+    if len(rows) != 1 or rows[0].kind != "video":
+        raise AssertionError(f"a video row must still be emitted, got {rows}")
+    if rows[0].width is not None or rows[0].codec is not None:
+        raise AssertionError("a failed probe must leave video fields null")
+    if rows[0].size_bytes != sample_video.stat().st_size:
+        raise AssertionError("the real byte size must still be reported")
 
 
 def test_cli_empty_dir_errors(tmp_path: Path) -> None:

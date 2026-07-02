@@ -116,6 +116,7 @@ def run_ffmpeg(args: list[str]) -> None:
 
 def probe_media(path: Path) -> dict[str, Any]:
     """Run ffprobe and return its parsed JSON metadata for ``path``."""
+    ensure_binary("ffprobe")
     proc = subprocess.run(mc.build_ffprobe_args(path), capture_output=True, text=True, check=False)
     if proc.returncode != 0:
         raise RuntimeError(f"ffprobe failed for {path}: {proc.stderr.strip()}")
@@ -243,8 +244,13 @@ def process_video(
         else:
             crop = mc.clamp_box(union, w, h)
 
-    bg = mc.parse_hex_color(bg_override) if bg_override else bg_rgb
     dst.parent.mkdir(parents=True, exist_ok=True)
+    if crop is None and not autoresize:
+        logger.info("No crop and no resize for %s; copying through", src.name)
+        shutil.copy2(src, dst)
+        return
+
+    bg = mc.parse_hex_color(bg_override) if bg_override else bg_rgb
     args = mc.build_ffmpeg_crop_resize_args(
         src, dst, crop=crop, size=size if autoresize else None, bg=bg
     )
@@ -336,7 +342,11 @@ def gather_info(inputs: list[Path]) -> list[InfoRow]:
         size_bytes = src.stat().st_size if src.exists() else None
         kind = mc.classify_kind(src)
         if kind == "video":
-            rows.append(mc.parse_ffprobe_json(src, kind, probe_media(src), size_bytes))
+            try:
+                rows.append(mc.parse_ffprobe_json(src, kind, probe_media(src), size_bytes))
+            except Exception as exc:  # noqa: BLE001 — a bad/absent ffprobe must not sink --info
+                logger.warning("Could not probe %s (%s); reporting name/size only", src, exc)
+                rows.append(InfoRow(path=str(src), kind=kind, size_bytes=size_bytes))
         else:
             img = read_image(src)
             h, w = img.shape[:2]
