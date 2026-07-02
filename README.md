@@ -124,6 +124,7 @@ past a single worker onto a fleet of competing consumers, see
 | [docs/installation.md](docs/installation.md) | Installing `uv` and Python |
 | [docs/usage.md](docs/usage.md) | CLI reference, training/eval/inference/export workflows, Python API |
 | [docs/demo.md](docs/demo.md) | Quick visual smoke test via the `screencrop-demo` tool |
+| [docs/screencrop-media-tutorial.md](docs/screencrop-media-tutorial.md) | Hands-on tutorial: crop + resize screenshots and video with the `screencrop-media` CLI |
 | [docs/configuration.md](docs/configuration.md) | Complete `config.yaml` field reference |
 | [docs/dataset-preparation.md](docs/dataset-preparation.md) | Dataset layout, validation, splitting, Roboflow, Pascal-VOC conversion, Label Studio |
 | [docs/architecture.md](docs/architecture.md) | Pipeline modules and how they fit together |
