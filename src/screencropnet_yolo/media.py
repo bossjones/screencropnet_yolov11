@@ -468,7 +468,12 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
     pipeline = None
     if autocrop:
         pipeline, banner = build_pipeline(
-            model=model, latest=latest, select=select, conf=conf, config_path=config_path
+            model=model,
+            latest=latest,
+            select=select,
+            conf=conf,
+            config_path=config_path,
+            verbose=verbose,
         )
         console.print(f"[green]✔︎[/green] {banner}")
 
@@ -493,8 +498,30 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
     raise typer.Exit(code=1 if failures and len(failures) == len(results) else 0)
 
 
+def _quiet_onnxruntime(verbose: int) -> None:
+    """Mute onnxruntime's native log severity unless at max (``-vvvv``) verbosity.
+
+    The CoreML/ORT execution provider prints native ``[W:onnxruntime...]`` lines at
+    session creation from C++, bypassing Python logging — a level filter can't touch
+    them. Setting the default logger severity to Error hides those warnings; ``-vvvv``
+    restores full ORT output. Only relevant for ``.onnx`` models.
+    """
+    try:
+        import onnxruntime  # noqa: PLC0415 — lazy: only .onnx models need it
+    except ImportError:
+        return
+    # ORT severities: 0=Verbose 1=Info 2=Warning 3=Error 4=Fatal.
+    onnxruntime.set_default_logger_severity(0 if verbose >= 4 else 3)
+
+
 def build_pipeline(
-    *, model: str | None, latest: bool, select: bool, conf: float | None, config_path: Path
+    *,
+    model: str | None,
+    latest: bool,
+    select: bool,
+    conf: float | None,
+    config_path: Path,
+    verbose: int = 0,
 ) -> tuple[InferencePipeline, str]:
     """Resolve the model and build a YOLO pipeline (torch import happens here).
 
@@ -505,6 +532,8 @@ def build_pipeline(
     model_ref, source = resolve_model(
         model=model, latest=latest, select=select, config=config, runs_dir=DEFAULT_RUNS_DIR
     )
+    if Path(model_ref).suffix.lower() == ".onnx":
+        _quiet_onnxruntime(verbose)
     model_cfg = config.get("model", {})
     class_names = model_cfg.get("class_names", ["object"])
     threshold = conf if conf is not None else config.get("inference", {}).get("confidence", 0.25)

@@ -409,6 +409,42 @@ def test_build_pipeline_passes_select(mocker: MockerFixture, tmp_path: Path) -> 
 
 
 @pytest.mark.parametrize(
+    ("verbose", "expected"),
+    [(0, 3), (1, 3), (3, 3), (4, 0)],
+)
+def test_quiet_onnxruntime_severity_by_verbosity(
+    mocker: MockerFixture, verbose: int, expected: int
+) -> None:
+    """ORT's native logger is muted to Error below -vvvv and opened up at -vvvv."""
+    set_sev = mocker.patch("onnxruntime.set_default_logger_severity")
+    media._quiet_onnxruntime(verbose)
+    set_sev.assert_called_once_with(expected)
+
+
+@pytest.mark.parametrize(
+    ("model_ref", "quieted"),
+    [("best.onnx", True), ("best.pt", False)],
+)
+def test_build_pipeline_quiets_only_onnx(
+    mocker: MockerFixture, tmp_path: Path, model_ref: str, quieted: bool
+) -> None:
+    mocker.patch(
+        "screencropnet_yolo.media.resolve_model",
+        return_value=(model_ref, f"selected ({model_ref})"),
+    )
+    mocker.patch("screencropnet_yolo.media.load_config", return_value={"model": {}})
+    mocker.patch("screencropnet_yolo.media.resolve_device", return_value="cpu")
+    mocker.patch("screencropnet_yolo.media.InferencePipeline")
+    quiet = mocker.patch("screencropnet_yolo.media._quiet_onnxruntime")
+
+    media.build_pipeline(
+        model=None, latest=False, select=True, conf=None, config_path=tmp_path, verbose=2
+    )
+    if quiet.called is not quieted:
+        raise AssertionError(f"_quiet_onnxruntime called={quiet.called} for {model_ref}")
+
+
+@pytest.mark.parametrize(
     "model_flag", [["--fuzzy"], ["--select"], ["--latest"], ["--model", "x.pt"]]
 )
 def test_cli_model_flag_without_autocrop_errors(
