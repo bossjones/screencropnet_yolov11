@@ -64,7 +64,8 @@ build: ## Build the package distribution
 
 # ---- Ingest/classify pipeline: services, migrations, run targets ----
 
-.PHONY: services-up services-down services-logs migrate api worker test-integration test-e2e download-weights demo docker-preflight
+.PHONY: services-up services-down services-logs migrate api worker serve top doctor test-integration test-e2e download-weights demo docker-preflight
+.PHONY: profile profile-demo profile-doctor profile-open
 
 docker-preflight: ## Fail fast with an actionable message when the Docker daemon is unreachable
 	@docker info >/dev/null 2>&1 || { \
@@ -93,6 +94,36 @@ api: ## Run the FastAPI ingest/classify service on 127.0.0.1:8000
 
 worker: ## Run the RabbitMQ classification worker (needs the `worker` dep group + weights)
 	@uv run screencrop-worker
+
+serve: ## Boot the API against a fuzzy-selected model (make serve SELECT=1 WITH_WORKER=1)
+	@uv run screencrop-cli serve $(if $(SELECT),--select) $(if $(WITH_WORKER),--with-worker)
+
+top: ## Live Textual dashboard of jobs in flight (make top REFRESH=5 BATCH=<id>)
+	@uv run screencrop-cli top $(if $(REFRESH),--refresh $(REFRESH)) $(if $(BATCH),--batch-id $(BATCH))
+
+doctor: ## Health-check postgres, rabbitmq, prometheus, grafana, api, and the worker
+	@uv run screencrop-cli doctor
+
+# --- Profiling (pyinstrument) -------------------------------------------------
+# DEMO_IMAGES/N feed profile-demo; RUN/OUT parameterize the generic `profile`.
+DEMO_IMAGES ?= datasets/twitter_screenshots_localization_dataset/test/images
+N ?= 8
+OUT ?= profile.html
+
+profile: ## Profile any module/script: make profile RUN="-m pkg.mod args" [OUT=profile.html]
+	@echo "🚀 Profiling '$(RUN)' -> $(OUT)"
+	@uv run pyinstrument -r html -o $(OUT) $(RUN)
+
+profile-demo: ## Profile a demo inference run (pyinstrument) -> profile_demo.html
+	@echo "🚀 Profiling demo inference -> profile_demo.html"
+	@uv run pyinstrument -r html -o profile_demo.html -m screencropnet_yolo.demo $(DEMO_IMAGES) --no-open -n $(N)
+
+profile-doctor: ## Profile a doctor sweep (pyinstrument) -> profile_doctor.html
+	@echo "🚀 Profiling doctor -> profile_doctor.html"
+	@uv run pyinstrument -r html -o profile_doctor.html -m screencropnet_yolo.client.cli doctor
+
+profile-open: ## Open the most recent profiling HTML report
+	@open profile_demo.html 2>/dev/null || open profile_doctor.html 2>/dev/null || open $(OUT)
 
 test-integration: ## Run the integration suite against real Postgres + RabbitMQ
 	@echo "🚀 Running integration tests"

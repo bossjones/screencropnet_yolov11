@@ -181,7 +181,7 @@ class TestMain:
         mocker.patch("screencropnet_yolo.demo.DEFAULT_RUNS_DIR", runs)
 
         picker = mocker.patch(
-            "screencropnet_yolo.demo._fzf_select",
+            "screencropnet_yolo.model_select._fzf_select",
             return_value=[demo.format_model_choice(weights)],
         )
         mocker.patch("screencropnet_yolo.demo.InferencePipeline")

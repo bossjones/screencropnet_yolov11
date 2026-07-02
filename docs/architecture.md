@@ -86,7 +86,7 @@ the run.
 A run writes everything under `logging.output_dir` (default
 `./runs/twitter_detect`):
 
-```
+```text
 runs/twitter_detect/
 ├── training_YYYYMMDD_HHMMSS.log
 ├── dataset.yaml

@@ -37,6 +37,18 @@ def test_pyproject_script_entrypoint() -> None:
     assert scripts["screencropnet_yolo"] == "screencropnet_yolo:main"
 
 
+def test_supervisor_console_scripts_resolve() -> None:
+    """Both supervisor console scripts point at the same importable, callable entry point."""
+    scripts = _load_pyproject()["project"]["scripts"]
+    target = "screencropnet_yolo.client.supervisor:main"
+    assert scripts["screencrop-supervisor-worker"] == target
+    assert scripts["screencrop-supervisorctl"] == target
+
+    module_name, attr = target.split(":")
+    module = importlib.import_module(module_name)
+    assert callable(getattr(module, attr))
+
+
 def test_hatch_wheel_packages_point_to_new_src() -> None:
     """Hatch builds the wheel from the renamed source directory."""
     data = _load_pyproject()

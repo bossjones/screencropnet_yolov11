@@ -1,0 +1,11 @@
+# Lychee link-checker config. See .claude/rules/documentation.md and
+# .github/workflows/docs.yml (link-check job).
+#
+# Local dev-server URLs documented for readers (FastAPI, RabbitMQ, Prometheus,
+# Grafana, Label Studio) are never reachable from the CI runner — exclude them
+# instead of treating every doc that mentions a local port as a broken link.
+exclude = [
+  "^https?://localhost([:/].*)?$",
+  "^https?://127\\.0\\.0\\.1([:/].*)?$",
+  "^https?://host\\.docker\\.internal([:/].*)?$",
+]

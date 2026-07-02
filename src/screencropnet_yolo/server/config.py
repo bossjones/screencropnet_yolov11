@@ -43,6 +43,31 @@ class Settings(BaseSettings):
     worker_metrics_port: int = 8001
     logs_dir: Path = Path("logs")
 
+    # Per-worker log override: when set, a worker routes its FileHandler here
+    # instead of the shared `logs_dir/worker.log`. The supervisor assigns a
+    # distinct path per child via SCREENCROPNET_WORKER_LOG_PATH so a fleet
+    # doesn't interleave into one file.
+    worker_log_path: Path | None = None
+
+    # `screencrop-supervisorctl` fleet defaults. State files (PID/port/weights)
+    # live under supervisor_state_dir; each worker gets metrics port base+i.
+    supervisor_state_dir: Path = Path("logs/supervisor")
+    supervisor_metrics_base_port: int = 8001
+    supervisor_workers: int = 2
+
+    # `serve --select` fuzzy-picks weights from these roots; `.pth` (ScreenNet) is
+    # included alongside the demo's `.pt`/`.onnx` via SERVER_MODEL_EXTS.
+    model_search_roots: list[Path] = [Path("runs"), Path("scratch/models")]
+
+    # `doctor` probe targets. Host ports mirror docker-compose.yml (prometheus is
+    # remapped 9091->9090, grafana 3001->3000). worker_metrics_url tracks
+    # worker_metrics_port by default; override any of these via SCREENCROPNET_* env.
+    prometheus_url: str = "http://127.0.0.1:9091/-/healthy"
+    grafana_url: str = "http://127.0.0.1:3001/api/health"
+    rabbit_mgmt_url: str = "http://127.0.0.1:15672/"
+    worker_metrics_url: str = "http://127.0.0.1:8001/"
+    doctor_timeout: float = 2.0
+
     @field_validator("weights_path", mode="after")
     @classmethod
     def _expand_weights_path(cls, v: Path) -> Path:

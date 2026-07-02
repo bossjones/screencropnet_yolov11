@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import signal
 from typing import Protocol, cast
 
 import aio_pika
@@ -34,8 +35,8 @@ logger = logging.getLogger("screencropnet_yolo.worker")
 
 
 def _configure_logging(settings: Settings) -> None:
-    settings.logs_dir.mkdir(parents=True, exist_ok=True)
-    log_path = settings.logs_dir / "worker.log"
+    log_path = settings.worker_log_path or settings.logs_dir / "worker.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
     logger.setLevel(logging.INFO)
     if not any(
         isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == str(log_path)
@@ -101,7 +102,31 @@ async def on_message(
         await handle_message(message.body, classifier=classifier, session_factory=session_factory)
 
 
-async def run_worker(settings: Settings) -> None:
+class _CancellableConsumer(Protocol):
+    """The slice of an aio-pika queue that warm shutdown needs."""
+
+    async def cancel(self, consumer_tag: str) -> object: ...
+
+
+async def drain_and_cancel(
+    queue: _CancellableConsumer,
+    consumer_tag: str,
+    in_flight: set[asyncio.Task[None]],
+    *,
+    timeout: float,
+) -> None:
+    """Stop new deliveries, then let in-flight handlers finish (bounded by ``timeout``).
+
+    Cancelling the consumer tag first guarantees no *new* messages arrive while we
+    wait; any handler that overruns ``timeout`` is left running (its message stays
+    unacked and the broker requeues it for another worker).
+    """
+    await queue.cancel(consumer_tag)
+    if in_flight:
+        await asyncio.wait(in_flight, timeout=timeout)
+
+
+async def run_worker(settings: Settings, *, shutdown_timeout: float = 30.0) -> None:
     _configure_logging(settings)
     classifier = ScreenNetClassifier(settings)
     classifier.load_model()
@@ -114,11 +139,30 @@ async def run_worker(settings: Settings) -> None:
     queue = await channel.declare_queue(settings.worker_queue_name, durable=True)
     logger.info("worker consuming from %s", settings.worker_queue_name)
 
-    async def _consume(message: aio_pika.abc.AbstractIncomingMessage) -> None:
-        await on_message(message, classifier=classifier, session_factory=session_factory)
+    in_flight: set[asyncio.Task[None]] = set()
 
-    await queue.consume(_consume)
-    await asyncio.Future()
+    async def _consume(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+        task = asyncio.current_task()
+        if task is not None:
+            in_flight.add(task)
+        try:
+            await on_message(message, classifier=classifier, session_factory=session_factory)
+        finally:
+            if task is not None:
+                in_flight.discard(task)
+
+    consumer_tag = await queue.consume(_consume)
+
+    loop = asyncio.get_running_loop()
+    stop = asyncio.Event()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, stop.set)
+
+    await stop.wait()
+    logger.info("shutdown requested; draining in-flight jobs up to %.1fs", shutdown_timeout)
+    await drain_and_cancel(queue, consumer_tag, in_flight, timeout=shutdown_timeout)
+    await connection.close()
+    logger.info("worker stopped")
 
 
 def main() -> None:

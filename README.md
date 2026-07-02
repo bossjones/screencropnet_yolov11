@@ -109,7 +109,9 @@ tweet-region **detector**. The other half is an async **classify/ingest** servic
 as twitter / not-twitter and exports the twitter-positive originals into the raw
 dataset. To get it running end to end, follow
 [docs/quickstart.md](docs/quickstart.md); for the architecture, endpoints, and
-metrics, see [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md).
+metrics, see [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md). To scale
+past a single worker onto a fleet of competing consumers, see
+[docs/worker-fleet-tutorial.md](docs/worker-fleet-tutorial.md).
 
 ## Documentation
 
@@ -117,6 +119,8 @@ metrics, see [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md).
 |-----|---------------|
 | [docs/quickstart.md](docs/quickstart.md) | Get the async classify pipeline running end to end in ~10 minutes |
 | [docs/screencrop-pipeline.md](docs/screencrop-pipeline.md) | Classify pipeline deep dive: architecture, endpoints, metrics, export semantics, config |
+| [docs/worker-fleet-tutorial.md](docs/worker-fleet-tutorial.md) | Hands-on tutorial: scale to a `screencrop-supervisorctl` fleet of workers to classify a folder |
+| [docs/worker-fleet-architecture.md](docs/worker-fleet-architecture.md) | Diagram-first fleet reference: topology, warm-shutdown handshake, lifecycles |
 | [docs/installation.md](docs/installation.md) | Installing `uv` and Python |
 | [docs/usage.md](docs/usage.md) | CLI reference, training/eval/inference/export workflows, Python API |
 | [docs/demo.md](docs/demo.md) | Quick visual smoke test via the `screencrop-demo` tool |

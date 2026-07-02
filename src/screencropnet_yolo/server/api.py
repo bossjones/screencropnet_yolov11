@@ -8,11 +8,12 @@ straight from the database (the source of truth).
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import AsyncIterator
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from screencropnet_yolo.server import db
@@ -56,6 +57,26 @@ def _configure_logging(settings: Settings) -> None:
         logger.addHandler(handler)
 
 
+def _install_profiler(app: FastAPI) -> None:
+    """Attach a pyinstrument middleware that renders ``?profile=1`` requests as HTML."""
+    from pyinstrument import Profiler
+    from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+    from starlette.responses import HTMLResponse
+
+    async def _dispatch(request: Request, call_next: RequestResponseEndpoint) -> Response:
+        if not request.query_params.get("profile"):
+            return await call_next(request)
+        profiler = Profiler(async_mode="enabled")
+        profiler.start()
+        await call_next(request)
+        profiler.stop()
+        return HTMLResponse(profiler.output_html())
+
+    # ty misreads starlette's BaseHTTPMiddleware as not a middleware factory
+    # (it flags starlette's own code the same way); basedpyright accepts it.
+    app.add_middleware(BaseHTTPMiddleware, dispatch=_dispatch)  # ty: ignore[invalid-argument-type]
+
+
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     _configure_logging(settings)
@@ -65,6 +86,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(make_engine(settings.postgres_dsn))
     app.state.publisher = RabbitPublisher(settings.rabbit_url, settings.worker_queue_name)
     app.mount("/metrics", metrics_asgi_app())
+
+    # Opt-in flamegraphs: with SCREENCROPNET_PROFILE set, any request carrying
+    # ?profile=1 returns a pyinstrument HTML report instead of its normal body.
+    # Off by default, so production and the test suite are unaffected.
+    if os.environ.get("SCREENCROPNET_PROFILE"):
+        _install_profiler(app)
 
     @app.get("/healthz")
     async def healthz() -> dict[str, bool]:

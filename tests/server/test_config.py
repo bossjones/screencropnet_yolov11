@@ -81,3 +81,31 @@ def test_weights_url_is_direct_download() -> None:
 def test_get_settings_is_cached() -> None:
     if get_settings() is not get_settings():
         raise AssertionError("get_settings() should return a cached singleton")
+
+
+def test_supervisor_defaults() -> None:
+    settings = Settings()
+    if settings.worker_log_path is not None:
+        raise AssertionError("worker_log_path should default to None (single shared worker.log)")
+    if settings.supervisor_state_dir != Path("logs/supervisor"):
+        raise AssertionError("unexpected default supervisor_state_dir")
+    if settings.supervisor_metrics_base_port != 8001:
+        raise AssertionError("unexpected default supervisor_metrics_base_port")
+    if settings.supervisor_workers != 2:
+        raise AssertionError("unexpected default supervisor_workers")
+
+
+def test_supervisor_env_overrides(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("SCREENCROPNET_WORKER_LOG_PATH", "/tmp/w7.log")
+    monkeypatch.setenv("SCREENCROPNET_SUPERVISOR_STATE_DIR", "/tmp/sup")
+    monkeypatch.setenv("SCREENCROPNET_SUPERVISOR_METRICS_BASE_PORT", "9100")
+    monkeypatch.setenv("SCREENCROPNET_SUPERVISOR_WORKERS", "5")
+    settings = Settings()
+    if settings.worker_log_path != Path("/tmp/w7.log"):
+        raise AssertionError("SCREENCROPNET_WORKER_LOG_PATH did not override default")
+    if settings.supervisor_state_dir != Path("/tmp/sup"):
+        raise AssertionError("SCREENCROPNET_SUPERVISOR_STATE_DIR did not override default")
+    if settings.supervisor_metrics_base_port != 9100:
+        raise AssertionError("SCREENCROPNET_SUPERVISOR_METRICS_BASE_PORT did not override default")
+    if settings.supervisor_workers != 5:
+        raise AssertionError("SCREENCROPNET_SUPERVISOR_WORKERS did not override default")

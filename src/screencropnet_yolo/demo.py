@@ -23,7 +23,6 @@ import subprocess
 import sys
 import tempfile
 import threading
-from collections.abc import Callable
 from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
@@ -37,17 +36,27 @@ import yaml
 
 from screencropnet_yolo.inference import InferencePipeline, InferenceResult, ResultExporter
 from screencropnet_yolo.model import ModelFactory, resolve_device
+from screencropnet_yolo.model_select import (
+    ModelSelector,
+)
+from screencropnet_yolo.model_select import (
+    discover_models as discover_models,
+)
+from screencropnet_yolo.model_select import (
+    format_model_choice as format_model_choice,
+)
+from screencropnet_yolo.model_select import (
+    select_model as select_model,
+)
 from screencropnet_yolo.output import (
     Artifact,
     ColorFormatter,
     format_artifacts_table,
-    human_size,
 )
 
 logger = logging.getLogger(__name__)
 
 SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-MODEL_EXTS = {".pt", ".onnx"}
 DEFAULT_COUNT = 10
 DEFAULT_RUNS_DIR = Path("runs")
 DEFAULT_CONFIG_PATH = Path(__file__).parent / "config" / "config.yaml"
@@ -85,48 +94,6 @@ def find_latest_run(runs_dir: Path) -> Path | None:
     if not existing:
         return None
     return max(existing, key=lambda p: p.stat().st_mtime)
-
-
-def discover_models(search_root: Path) -> list[Path]:
-    """All model weight files (``.pt``/``.onnx``) under ``search_root``, newest first."""
-    if not search_root.is_dir():
-        return []
-    found = [p for p in search_root.rglob("*") if p.is_file() and p.suffix.lower() in MODEL_EXTS]
-    return sorted(found, key=lambda p: p.stat().st_mtime, reverse=True)
-
-
-def format_model_choice(path: Path) -> str:
-    """Render one fzf line for ``path``: ``'best.pt : /abs/path  [42.0 MB]'``."""
-    return f"{path.name} : {path}  [{human_size(path.stat().st_size)}]"
-
-
-ModelSelector = Callable[[list[str]], list[str]]
-"""A picker: given display lines, return the chosen line(s) (empty if cancelled)."""
-
-
-def _fzf_select(choices: list[str]) -> list[str]:
-    """Default selector: hand ``choices`` to fzf via pyfzf, return the chosen line(s).
-
-    ``pyfzf`` is imported lazily so that importing this module never requires the
-    ``fzf`` binary — only ``--select`` runs pull it in.
-    """
-    from pyfzf.pyfzf import FzfPrompt
-
-    # pyfzf ships no type stubs, so .prompt is untyped; the signature here is the contract.
-    return FzfPrompt().prompt(choices, "--height=40% --reverse")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-
-
-def select_model(candidates: list[Path], *, selector: ModelSelector | None = None) -> Path | None:
-    """Present ``candidates`` via a fuzzy picker; return the chosen Path, or None if cancelled.
-
-    The display line is mapped back to its Path through a dict, so the selection is
-    recovered exactly rather than re-parsed out of the formatted string.
-    """
-    choices = {format_model_choice(p): p for p in candidates}
-    picked = (selector or _fzf_select)(list(choices))
-    if not picked:
-        return None
-    return choices[picked[0]]
 
 
 def resolve_model(
@@ -623,33 +590,11 @@ def test_make_output_dir_uses_base() -> None:
             raise AssertionError("make_output_dir(base) must create and return the base dir")
 
 
-def test_discover_models_finds_pt_and_onnx() -> None:
-    with tempfile.TemporaryDirectory() as d:
-        runs = Path(d)
-        pt = runs / "a" / "train" / "weights" / "best.pt"
-        onnx = runs / "b" / "weights" / "best.onnx"
-        pt.parent.mkdir(parents=True)
-        onnx.parent.mkdir(parents=True)
-        pt.write_bytes(b"x")
-        onnx.write_bytes(b"x")
-        (runs / "notes.txt").write_text("nope")
-        os.utime(pt, (1, 1))
-        os.utime(onnx, (10_000_000, 10_000_000))
-        found = discover_models(runs)
-        if found != [onnx, pt]:
-            raise AssertionError(f"expected newest-first [onnx, pt], got {found}")
+def test_discover_and_format_reexported_from_model_select() -> None:
+    """demo re-exports the fuzzy helpers, so `demo.discover_models` etc. still resolve."""
+    from screencropnet_yolo import model_select
 
-
-def test_discover_models_empty_when_absent() -> None:
-    with tempfile.TemporaryDirectory() as d:
-        if discover_models(Path(d) / "missing") != []:
-            raise AssertionError("a missing root must yield []")
-
-
-def test_format_model_choice_line() -> None:
-    with tempfile.TemporaryDirectory() as d:
-        p = Path(d) / "best.pt"
-        p.write_bytes(b"x" * 1536)  # 1.5 KB
-        line = format_model_choice(p)
-        if line != f"best.pt : {p}  [1.5 KB]":
-            raise AssertionError(f"unexpected choice line: {line!r}")
+    if discover_models is not model_select.discover_models:
+        raise AssertionError("demo must re-export the shared discover_models")
+    if format_model_choice is not model_select.format_model_choice:
+        raise AssertionError("demo must re-export the shared format_model_choice")

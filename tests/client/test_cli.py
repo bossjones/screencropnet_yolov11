@@ -4,6 +4,7 @@ from pytest_mock import MockerFixture
 from typer.testing import CliRunner
 
 from screencropnet_yolo.client import cli
+from screencropnet_yolo.client.doctor import CheckResult
 from screencropnet_yolo.server.schemas import ExportRecord, JobView, StatusSummary
 
 runner = CliRunner()
@@ -136,3 +137,52 @@ def test_export_invokes_export_originals(mocker: MockerFixture) -> None:
         raise AssertionError("export must pass the resolved twitter-positive jobs")
     if export_mock.call_args.kwargs.get("dry_run") is not True:
         raise AssertionError("--dry-run must be threaded through to export_originals")
+
+
+def test_doctor_reports_and_exits_nonzero_on_failure(mocker: MockerFixture) -> None:
+    results = [
+        CheckResult("postgres", True, "SELECT 1 ok", latency_ms=4.0),
+        CheckResult("worker", False, "ConnectionError: refused", latency_ms=2001.0),
+    ]
+    mocker.patch(
+        "screencropnet_yolo.client.cli.run_doctor",
+        new=mocker.AsyncMock(return_value=results),
+    )
+    result = runner.invoke(cli.app, ["doctor"])
+    if result.exit_code == 0:
+        raise AssertionError("doctor must exit non-zero when a check fails")
+    if "postgres" not in result.output or "worker" not in result.output:
+        raise AssertionError("doctor must render every service row")
+
+
+def test_doctor_json_flag(mocker: MockerFixture) -> None:
+    results = [CheckResult("api", True, "HTTP 200", latency_ms=5.0)]
+    mocker.patch(
+        "screencropnet_yolo.client.cli.run_doctor",
+        new=mocker.AsyncMock(return_value=results),
+    )
+    result = runner.invoke(cli.app, ["doctor", "--json"])
+    if result.exit_code != 0:
+        raise AssertionError(f"all-ok doctor must exit 0: {result.output}")
+    if '"name": "api"' not in result.output:
+        raise AssertionError("--json must emit raw JSON")
+
+
+def test_top_runs_app_and_closes_client(mocker: MockerFixture) -> None:
+    client = _mock_client(mocker)
+    mocker.patch("screencropnet_yolo.client.cli.build_client", return_value=client)
+    top_app = mocker.patch("screencropnet_yolo.client.cli.TopApp")
+    result = runner.invoke(cli.app, ["top", "--batch-id", "b1", "--refresh", "2"])
+    if result.exit_code != 0:
+        raise AssertionError(f"top failed: {result.output}")
+    top_app.assert_called_once_with(client=client, batch_id="b1", refresh_seconds=2.0)
+    top_app.return_value.run.assert_called_once()
+    client.aclose.assert_awaited_once()
+
+
+def test_serve_command_delegates(mocker: MockerFixture) -> None:
+    run_serve = mocker.patch("screencropnet_yolo.client.cli.run_serve")
+    result = runner.invoke(cli.app, ["serve", "--select", "--with-worker", "--port", "9000"])
+    if result.exit_code != 0:
+        raise AssertionError(f"serve failed: {result.output}")
+    run_serve.assert_called_once_with(select=True, host=None, port=9000, with_worker=True)
