@@ -32,6 +32,7 @@ import numpy as np
 import numpy.typing as npt
 import typer
 from rich.console import Console
+from rich.logging import RichHandler
 from rich.progress import Progress
 from rich.table import Table
 from strif import atomic_output_file
@@ -46,7 +47,7 @@ from screencropnet_yolo.demo import (
 from screencropnet_yolo.inference import InferencePipeline
 from screencropnet_yolo.media_core import Box, InfoRow
 from screencropnet_yolo.model import resolve_device
-from screencropnet_yolo.output import ColorFormatter, human_size
+from screencropnet_yolo.output import human_size
 
 logger = logging.getLogger(__name__)
 
@@ -391,10 +392,21 @@ def _resolve_color(color: bool | None) -> bool:
     return sys.stdout.isatty() and "NO_COLOR" not in os.environ
 
 
-def _setup_logging(level: int, *, color: bool) -> None:
-    """Configure a single colored stream handler at ``level``."""
-    handler = logging.StreamHandler(sys.stderr)
-    handler.setFormatter(ColorFormatter("%(levelname)8s | %(name)s | %(message)s", enabled=color))
+def _setup_logging(level: int, *, console: Console) -> None:
+    """Route logging through ``console`` so records coordinate with a Progress bar.
+
+    Because the handler and the ``Progress`` share one Rich ``Console``, Rich prints
+    each log line above the live bar and redraws it, instead of the two streams
+    overwriting each other on the terminal.
+    """
+    handler = RichHandler(
+        console=console,
+        show_time=False,
+        show_path=False,
+        markup=False,
+        rich_tracebacks=False,
+    )
+    handler.setFormatter(logging.Formatter("%(name)s | %(message)s"))
     logging.basicConfig(level=level, handlers=[handler], force=True)
     logging.getLogger("ultralytics").setLevel(logging.WARNING)
 
@@ -426,8 +438,9 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
 ) -> None:
     """Crop and/or resize the input(s), writing artifacts under ``--output-dir``."""
     use_color = _resolve_color(color)
-    _setup_logging(mc.verbosity_to_level(verbose), color=use_color)
-    console = Console(no_color=not use_color, stderr=False)
+    console = Console(no_color=not use_color)  # stdout: results (tables)
+    err_console = Console(stderr=True, no_color=not use_color)  # stderr: status/logs/progress
+    _setup_logging(mc.verbosity_to_level(verbose), console=err_console)
     out_dir = Path(output_dir) if output_dir else DEFAULT_OUTPUT_DIR
     config_path = Path(config) if config else DEFAULT_CONFIG_PATH
 
@@ -435,7 +448,7 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
     input_root = input_path if input_path.is_dir() else input_path.parent
     inputs = mc.discover_inputs(input_path, depth)
     if not inputs:
-        console.print(f"[red]✘[/red] No image/video files found under {input_path}")
+        err_console.print(f"[red]✘[/red] No image/video files found under {input_path}")
         raise typer.Exit(code=1)
     logger.info("Discovered %d input(s) under %s", len(inputs), input_path)
 
@@ -448,7 +461,7 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
         raise typer.Exit(code=0)
 
     if mc.output_would_clobber_input(input_root, out_dir):
-        console.print(f"[red]✘[/red] --output-dir {out_dir} is inside the input; refusing")
+        err_console.print(f"[red]✘[/red] --output-dir {out_dir} is inside the input; refusing")
         raise typer.Exit(code=1)
 
     try:
@@ -456,11 +469,11 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
         if bg_color is not None:
             mc.parse_hex_color(bg_color)  # validate early
     except ValueError as exc:
-        console.print(f"[red]✘[/red] {exc}")
+        err_console.print(f"[red]✘[/red] {exc}")
         raise typer.Exit(code=1) from exc
 
     if (select or latest or model is not None) and not autocrop:
-        console.print(
+        err_console.print(
             "[red]✘[/red] --fuzzy/--select/--model/--latest require --autocrop; nothing to do"
         )
         raise typer.Exit(code=1)
@@ -475,9 +488,9 @@ def run(  # noqa: PLR0913 — a CLI surface is inherently wide
             config_path=config_path,
             verbose=verbose,
         )
-        console.print(f"[green]✔︎[/green] {banner}")
+        err_console.print(f"[green]✔︎[/green] {banner}")
 
-    with Progress(console=console, disable=not sys.stderr.isatty()) as progress:
+    with Progress(console=err_console, disable=not sys.stderr.isatty()) as progress:
         results = asyncio.run(
             run_media(
                 inputs,

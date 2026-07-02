@@ -9,6 +9,7 @@ A single tool-gated ``@pytest.mark.integration`` test runs real ffmpeg on the cl
 
 from __future__ import annotations
 
+import logging
 import re
 import shutil
 import subprocess
@@ -19,6 +20,8 @@ from typing import Any
 import numpy as np
 import pytest
 from pytest_mock import MockerFixture
+from rich.console import Console
+from rich.logging import RichHandler
 from typer.testing import CliRunner
 
 from screencropnet_yolo import media
@@ -337,8 +340,8 @@ def test_gather_info_survives_probe_failure(mocker: MockerFixture, sample_video:
 
 def test_cli_empty_dir_errors(tmp_path: Path) -> None:
     result = CliRunner().invoke(media.app, [str(tmp_path), "--no-color"])
-    if result.exit_code != 1 or "No image/video" not in result.output:
-        raise AssertionError(f"an empty dir must exit 1, got {result.exit_code}: {result.output}")
+    if result.exit_code != 1 or "No image/video" not in result.stderr:
+        raise AssertionError(f"an empty dir must exit 1, got {result.exit_code}: {result.stderr}")
 
 
 def test_cli_output_inside_input_refused(sample_image: Path, tmp_path: Path) -> None:
@@ -348,8 +351,8 @@ def test_cli_output_inside_input_refused(sample_image: Path, tmp_path: Path) -> 
     result = CliRunner().invoke(
         media.app, [str(in_dir), "--autoresize", "--output-dir", str(in_dir / "out"), "--no-color"]
     )
-    if result.exit_code != 1 or "refusing" not in result.output:
-        raise AssertionError(f"output inside input must be refused, got: {result.output}")
+    if result.exit_code != 1 or "refusing" not in result.stderr:
+        raise AssertionError(f"output inside input must be refused, got: {result.stderr}")
 
 
 def test_cli_size_conflict_errors(sample_image: Path, tmp_path: Path) -> None:
@@ -444,6 +447,22 @@ def test_build_pipeline_quiets_only_onnx(
         raise AssertionError(f"_quiet_onnxruntime called={quiet.called} for {model_ref}")
 
 
+def test_setup_logging_binds_richhandler_to_console() -> None:
+    """Logging must share the console the Progress uses, so the two coordinate."""
+    root = logging.getLogger()
+    saved = root.handlers[:]
+    console = Console(stderr=True)
+    try:
+        media._setup_logging(logging.INFO, console=console)
+        handlers = root.handlers
+        if len(handlers) != 1 or not isinstance(handlers[0], RichHandler):
+            raise AssertionError(f"expected a single RichHandler, got {handlers}")
+        if handlers[0].console is not console:
+            raise AssertionError("the RichHandler must render to the shared console")
+    finally:
+        root.handlers = saved
+
+
 @pytest.mark.parametrize(
     "model_flag", [["--fuzzy"], ["--select"], ["--latest"], ["--model", "x.pt"]]
 )
@@ -457,10 +476,10 @@ def test_cli_model_flag_without_autocrop_errors(
     result = CliRunner().invoke(
         media.app, [str(in_dir), *model_flag, "--output-dir", str(out_dir), "--no-color"]
     )
-    if result.exit_code != 1 or "require --autocrop" not in result.output:
+    if result.exit_code != 1 or "require --autocrop" not in result.stderr:
         raise AssertionError(
             f"{model_flag} without --autocrop must exit 1 with guidance, got "
-            f"{result.exit_code}: {result.output}"
+            f"{result.exit_code}: {result.stderr}"
         )
     if out_dir.exists() and any(out_dir.iterdir()):
         raise AssertionError("the guard must reject before writing any artifact")
@@ -511,9 +530,9 @@ def test_integration_autocrop_real_model_reports_and_writes(
         ],
     )
     if result.exit_code != 0:
-        raise AssertionError(f"real-model autocrop must succeed, got: {result.output}")
-    if "Model:" not in result.output or "yolo26n" not in result.output:
-        raise AssertionError(f"the run must name the model in use, got: {result.output}")
+        raise AssertionError(f"real-model autocrop must succeed, got: {result.stderr}")
+    if "Model:" not in result.stderr or "yolo26n" not in result.stderr:
+        raise AssertionError(f"the run must name the model in use, got: {result.stderr}")
     artifacts = [p for p in out_dir.rglob("*") if p.is_file()]
     if not artifacts:
         raise AssertionError("autocrop must write at least one artifact")
