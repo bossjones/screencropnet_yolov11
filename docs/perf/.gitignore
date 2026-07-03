@@ -1,0 +1,4 @@
+# Heavy raw profiler artifacts are regenerable and large; the .md reports are
+# the durable, committed output.
+*.trace.json
+*.memory-snapshot.pickle

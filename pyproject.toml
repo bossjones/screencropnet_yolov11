@@ -250,6 +250,7 @@ markers = [
     "integration: marks tests dealing with integration testing (deselect with '-m \"not integration\"')",
     "slow: marks tests as slow (run with '-m slow')",
     "unittest: marks tests dealing with unittest (deselect with '-m \"not unittest\"')",
+    "pytorch_profile: marks tests to run under torch.profiler (local/GPU only; deselect with '-m \"not pytorch_profile\"')",
 ]
 python_classes = ["Test*"]
 python_files = ["*.py"]
