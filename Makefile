@@ -125,6 +125,18 @@ profile-doctor: ## Profile a doctor sweep (pyinstrument) -> profile_doctor.html
 profile-open: ## Open the most recent profiling HTML report
 	@open profile_demo.html 2>/dev/null || open profile_doctor.html 2>/dev/null || open $(OUT)
 
+# --- Deep profiling (perf skill: Scalene + PyTorch Profiler) -------------------
+# TARGET is a pytest target; reports land under docs/perf/<backend>/.
+TARGET ?= tests/test_inference_e2e.py
+
+profile-scalene: ## Scalene line-level profile of a pytest TARGET -> docs/perf/scalene/
+	@echo "🚀 Scalene profiling '$(TARGET)' -> docs/perf/scalene/"
+	@uv run .claude/skills/perf/scripts/run_scalene.py $(TARGET)
+
+profile-torch: ## PyTorch Profiler operator-level profile of TARGET -> docs/perf/pytorch_profiler/
+	@echo "🚀 PyTorch profiling '$(TARGET)' -> docs/perf/pytorch_profiler/"
+	@uv run .claude/skills/perf/scripts/run_torch_profiler.py $(TARGET)
+
 test-integration: ## Run the integration suite against real Postgres + RabbitMQ
 	@echo "🚀 Running integration tests"
 	@uv run pytest -m integration

@@ -15,7 +15,7 @@ from PIL import Image
 from screencropnet_yolo.server.classifier import ScreenNetClassifier, is_twitter
 from screencropnet_yolo.server.config import get_settings
 
-pytestmark = [pytest.mark.integration, pytest.mark.e2e]
+pytestmark = [pytest.mark.integration, pytest.mark.e2e, pytest.mark.pytorch_profile]
 
 K = 10
 MIN_TWITTER_FRACTION = 0.8

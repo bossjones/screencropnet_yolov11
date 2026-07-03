@@ -16,6 +16,7 @@ from screencropnet_yolo.inference import InferencePipeline
 
 
 @pytest.mark.integration
+@pytest.mark.pytorch_profile
 def test_real_yolo26_predicts_on_sample_image(tmp_path: Path) -> None:
     """A real yolo26n.pt model loads and runs predict() end to end."""
     import cv2
